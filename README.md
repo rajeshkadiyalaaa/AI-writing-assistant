@@ -29,6 +29,40 @@ This application uses a hybrid architecture:
 
 The system employs advanced prompt engineering to extract optimal performance from LLMs, with specialized prompts for different document types and writing tasks. Response processing includes structured parsing and quality evaluation to ensure consistently high-quality output.
 
+## Deployment with Vercel
+
+This project is configured for seamless deployment on Vercel:
+
+1. **Fork or clone this repository**
+   - Create your own copy of the repository on GitHub
+
+2. **Set up a Vercel account**
+   - Go to [Vercel](https://vercel.com) and sign up or log in
+   - Connect your GitHub account
+
+3. **Import your repository**
+   - In Vercel dashboard, click "Add New" → "Project"
+   - Select your repository from the list
+   - Vercel will automatically detect the project configuration
+
+4. **Configure environment variables**
+   - Add the following environment variables in Vercel's project settings:
+     ```
+     OPENROUTER_API_KEY=your_api_key_here
+     NODE_ENV=production
+     DEBUG=false
+     LOG_LEVEL=INFO
+     DEFAULT_MODEL=nvidia/llama-3.1-nemotron-nano-8b-v1:free
+     TEMPERATURE=0.7
+     MAX_TOKENS=1000
+     ```
+
+5. **Deploy**
+   - Click "Deploy" and Vercel will build and deploy your application
+   - Your AI Writing Assistant will be available at a vercel.app domain
+
+The included `vercel.json` file handles the configuration for both frontend and backend, ensuring that API routes are properly directed to the backend while static content is served from the frontend.
+
 ## Features
 
 - **Multi-Format Content Creation**: Specialized assistance for emails, blogs, academic papers, and creative writing
