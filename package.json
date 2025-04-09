@@ -7,9 +7,7 @@
     "backend": "cd backend && npm run start",
     "frontend": "cd frontend && npm start",
     "install-all": "npm install && cd frontend && npm install && cd ../backend && npm install",
-    "build": "cd frontend && npm run build",
-    "deploy-setup": "npm ci && cd frontend && npm ci && npm run build && cd ../backend && rm -rf node_modules && npm ci && npm install express cors body-parser dotenv node-fetch --save && ls -la node_modules",
-    "deploy-start": "cd backend && node server.js"
+    "build": "cd frontend && npm run build"
   },
   "keywords": [
     "ai",
