@@ -9,6 +9,9 @@ const fetch = require('node-fetch');
 // Load environment variables from .env file
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
+// Debug: Check if API key is loaded
+console.log('API Key loaded:', process.env.OPENROUTER_API_KEY ? 'Yes (key found)' : 'No (key not found)');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 

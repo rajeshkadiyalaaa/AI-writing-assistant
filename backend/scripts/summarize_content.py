@@ -14,8 +14,10 @@ from utils import (
     analyze_response_statistics
 )
 
-# Load environment variables
-load_dotenv()
+# Load environment variables with explicit path
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), '.env')
+print(f"Debug - Looking for .env at: {dotenv_path}", file=sys.stderr)
+load_dotenv(dotenv_path=dotenv_path)
 
 def summarize_content(data):
     """

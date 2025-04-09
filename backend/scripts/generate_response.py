@@ -15,11 +15,19 @@ from utils import (
 )
 
 def generate_response(data):
-    # Load environment variables
-    load_dotenv()
+    # Load environment variables with explicit path
+    dotenv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), '.env')
+    print(f"Debug - Looking for .env at: {dotenv_path}", file=sys.stderr)
+    load_dotenv(dotenv_path=dotenv_path)
+    
+    # Debug: Check if API key is loaded
+    api_key = os.getenv('OPENROUTER_API_KEY')
+    print(f"Debug - API key found: {'Yes' if api_key else 'No'}", file=sys.stderr)
+    if api_key:
+        # Print first 5 chars to verify key format without exposing full key
+        print(f"Debug - API key starts with: {api_key[:5]}...", file=sys.stderr)
     
     # Get API key from environment
-    api_key = os.getenv('OPENROUTER_API_KEY')
     if not api_key:
         return json.dumps({
             "error": "API key not found. Please set OPENROUTER_API_KEY in your .env file."
@@ -143,6 +151,14 @@ Current conversation temperature setting: {temperature} - {'focus on creativity 
         'Content-Type': 'application/json',
         'HTTP-Referer': 'https://example.com'  # Replace with your actual domain
     }
+    
+    # Debug: Print headers (without full API key)
+    debug_headers = headers.copy()
+    if 'Authorization' in debug_headers:
+        auth_value = debug_headers['Authorization']
+        if auth_value.startswith('Bearer '):
+            debug_headers['Authorization'] = f"Bearer {auth_value[7:12]}..."
+    print(f"Debug - Headers being sent: {debug_headers}", file=sys.stderr)
     
     # Prepare the request payload with enhanced parameters
     payload = {
