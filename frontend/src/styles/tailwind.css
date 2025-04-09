@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles can be added below */ 
+
+/* Custom styles for panel resizing */
+.resizable-panel {
+  transition: width 0.1s ease-out;
+}
+
+.resize-handle {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 4px;
+  background: transparent;
+  cursor: ew-resize;
+  z-index: 10;
+  transition: background-color 0.2s, width 0.1s;
+}
+
+.resize-handle:hover,
+.resize-handle.active {
+  background-color: rgba(59, 130, 246, 0.5);
+  width: 6px;
+}
+
+/* Style to disable text selection during resize */
+.no-select {
+  user-select: none;
+} 
