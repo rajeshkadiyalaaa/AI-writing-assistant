@@ -3,7 +3,7 @@ import {
   PenTool, Save, Download, History, Settings, 
   Trash2, Check, RefreshCw, Send, FileText, 
   BookOpen, Mail, Edit3, ChevronDown, Loader,
-  MessagesSquare, MessageCircle, Bot, Info, Plus
+  MessageCircle, Bot, Info, Plus
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -24,7 +24,7 @@ export default function AIWritingAssistant() {
   const [activeTab, setActiveTab] = useState('editor');
   const [typingText, setTypingText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [typingSpeed, setTypingSpeed] = useState(5); // ms per character
+  const [typingSpeed] = useState(5); // ms per character - removed setter as it's unused
   const [fullResponse, setFullResponse] = useState('');
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [tokenUsage, setTokenUsage] = useState({ total: 0, lastRequest: 0 });
@@ -131,6 +131,21 @@ export default function AIWritingAssistant() {
   const isRecommendedModel = (modelId) => {
     return modelOptions.some(m => m.id === modelId && m.strengths.includes(documentType));
   };
+  
+  // Finish typing animation and add the message to the chat
+  const finishTypingAnimation = () => {
+    // Update the last message with the full text
+    const updatedMessages = [...chatMessages];
+    if (updatedMessages.length > 0 && updatedMessages[updatedMessages.length - 1].isTyping) {
+      updatedMessages[updatedMessages.length - 1] = {
+        role: 'assistant',
+        content: fullResponse
+      };
+      setChatMessages(updatedMessages);
+    }
+    setFullResponse('');
+    setTypingText('');
+  };
 
   // Update model when document type changes
   useEffect(() => {
@@ -146,7 +161,7 @@ export default function AIWritingAssistant() {
         setChatMessages([]);
       }
     }
-  }, [documentType]);
+  }, [documentType, documentTypes, getRecommendedModel, isRecommendedModel, model]);
 
   // Typing animation effect
   useEffect(() => {
@@ -161,7 +176,7 @@ export default function AIWritingAssistant() {
         finishTypingAnimation();
       }
     }
-  }, [typingText, isTyping, fullResponse]);
+  }, [typingText, isTyping, fullResponse, typingSpeed, finishTypingAnimation]);
 
   // Auto-scroll to the bottom of chat when new messages arrive
   useEffect(() => {
@@ -169,28 +184,6 @@ export default function AIWritingAssistant() {
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [chatMessages, typingText]);
-
-  // Start typing animation with new response
-  const startTypingAnimation = (text) => {
-    setFullResponse(text);
-    setTypingText('');
-    setIsTyping(true);
-  };
-
-  // Finish typing animation and add the message to the chat
-  const finishTypingAnimation = () => {
-    // Update the last message with the full text
-    const updatedMessages = [...chatMessages];
-    if (updatedMessages.length > 0 && updatedMessages[updatedMessages.length - 1].isTyping) {
-      updatedMessages[updatedMessages.length - 1] = {
-        role: 'assistant',
-        content: fullResponse
-      };
-      setChatMessages(updatedMessages);
-    }
-    setFullResponse('');
-    setTypingText('');
-  };
 
   // Function to call the backend API for AI response
   const generateAIResponse = async () => {
@@ -811,13 +804,7 @@ export default function AIWritingAssistant() {
           custom: true
         };
         
-        // Create a new array with the updated model options
-        const updatedModelOptions = [...modelOptions, newModel];
-        
-        // Replace the global modelOptions with our updated version
-        // Note: In a real app, you'd want to use useState for modelOptions
-        // For simplicity in this example, we're just modifying the reference
-        // Replace the model options with the updated list
+        // Add the new model to the model options array
         modelOptions.push(newModel);
         
         // Switch to the new model
