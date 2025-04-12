@@ -27,7 +27,17 @@ app.use(bodyParser.json());
 
 // Serve static files from the React app in production
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../frontend/build')));
+  // Update path for Vercel deployment
+  const frontendBuildPath = path.join(__dirname, '../frontend/build');
+  console.log('Serving static files from:', frontendBuildPath);
+  app.use(express.static(frontendBuildPath));
+  
+  // Always return the main index.html for any route not handled by API or static files
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(frontendBuildPath, 'index.html'));
+    }
+  });
 }
 
 // API endpoint to get available models
@@ -329,21 +339,15 @@ app.post('/api/verify-model', async (req, res) => {
   }
 });
 
-// Handle React routing in production only
-if (process.env.NODE_ENV === 'production') {
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/build/index.html'));
+// Health check endpoint for debugging deployment issues
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    time: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    version: '1.0.0'
   });
-} else {
-  // In development, just send a simple message for any non-API route
-  app.get('*', (req, res) => {
-    res.json({ 
-      message: 'Backend server is running', 
-      mode: 'development',
-      endpoints: ['/api/generate', '/api/suggestions', '/api/improve'] 
-    });
-  });
-}
+});
 
 // Start server
 app.listen(PORT, () => {
