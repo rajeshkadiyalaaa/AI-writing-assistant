@@ -35,6 +35,7 @@ export default function AIWritingAssistant() {
   const [isVerifyingModel, setIsVerifyingModel] = useState(false);
   const [showTemperatureInfo, setShowTemperatureInfo] = useState(false);
   const [showModelInfo, setShowModelInfo] = useState(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   
   // Panel resizing state
   const [leftPanelWidth, setLeftPanelWidth] = useState(() => {
@@ -56,6 +57,7 @@ export default function AIWritingAssistant() {
   const temperatureInfoRef = useRef(null);
   const modelInfoRef = useRef(null);
   const customModelFormRef = useRef(null);
+  const settingsMenuRef = useRef(null);
   
   const [savedDocuments, setSavedDocuments] = useState([
     { id: 1, title: 'Project Proposal', date: '2025-04-08', type: 'business', content: 'This is a sample project proposal document.' },
@@ -94,13 +96,6 @@ export default function AIWritingAssistant() {
       strengths: ['general', 'creative'],
       description: 'Balanced model good for general-purpose writing and creative tasks',
       free: true
-    },
-    { 
-      id: 'openrouter/quasar-alpha', 
-      name: 'Quasar Alpha',
-      strengths: ['business', 'academic'],
-      description: 'Excellent for professional writing, business documents, and academic content',
-      free: false
     },
     { 
       id: 'google/gemini-2.5-pro-exp-03-25:free', 
@@ -150,18 +145,20 @@ export default function AIWritingAssistant() {
   // Update model when document type changes
   useEffect(() => {
     const recommendedModel = getRecommendedModel(documentType);
-    // Only show recommendation alert if not already using a recommended model
+    
+    // Only update the model silently, don't show a popup
+    // The user can manually change models through the settings
     if (!isRecommendedModel(model)) {
-      const confirmed = window.confirm(
-        `Based on your "${documentTypes.find(t => t.id === documentType)?.name}" document type, "${recommendedModel.name}" is recommended.\n\nWould you like to switch to this model?`
-      );
-      if (confirmed) {
-        setModel(recommendedModel.id);
-        // Clear chat messages when model changes
-        setChatMessages([]);
-      }
+      // Instead of showing a popup, just display a subtle indication in the UI
+      // that there's a recommended model for this content type
+      console.log(`${recommendedModel.name} is recommended for ${documentType} documents`);
+      
+      // Don't automatically change the model or show confirmation
+      // setModel(recommendedModel.id);
+      // Don't clear chat messages either
+      // setChatMessages([]);
     }
-  }, [documentType, documentTypes, getRecommendedModel, isRecommendedModel, model]);
+  }, [documentType]);
 
   // Typing animation effect
   useEffect(() => {
@@ -184,6 +181,20 @@ export default function AIWritingAssistant() {
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [chatMessages, typingText]);
+
+  // Add click outside handler for settings menu
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (settingsMenuRef.current && !settingsMenuRef.current.contains(event.target)) {
+        setShowSettingsMenu(false);
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [settingsMenuRef]);
 
   // Function to call the backend API for AI response
   const generateAIResponse = async () => {
@@ -945,7 +956,7 @@ export default function AIWritingAssistant() {
                       </div>
                     )}
                   </label>
-                  <div className="flex mb-2">
+                  <div className="mb-2">
                     <select 
                       value={model}
                       onChange={(e) => {
@@ -953,7 +964,7 @@ export default function AIWritingAssistant() {
                         // Clear chat messages when model changes
                         setChatMessages([]);
                       }}
-                      className="flex-1 p-2 border border-gray-300 rounded-l-md text-sm"
+                      className="w-full p-2 border border-gray-300 rounded-md text-sm"
                     >
                       {modelOptions.map(m => (
                         <option key={m.id} value={m.id}>
@@ -963,61 +974,7 @@ export default function AIWritingAssistant() {
                         </option>
                       ))}
                     </select>
-                    <button
-                      onClick={() => setShowCustomModelForm(!showCustomModelForm)}
-                      className="p-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600"
-                      title="Add custom model"
-                    >
-                      <Plus size={16} />
-                    </button>
                   </div>
-                  
-                  {showCustomModelForm && (
-                    <div 
-                      ref={customModelFormRef}
-                      className="mt-2 p-3 border border-gray-200 rounded-md bg-gray-50"
-                    >
-                      <h4 className="text-sm font-medium mb-2">Add Custom Model</h4>
-                      <div className="mb-2">
-                        <label className="block text-xs mb-1">Model ID</label>
-                        <input
-                          type="text"
-                          value={customModelId}
-                          onChange={(e) => setCustomModelId(e.target.value)}
-                          placeholder="e.g., anthropic/claude-3-haiku-20240307"
-                          className="w-full p-2 text-xs border border-gray-300 rounded-md"
-                        />
-                      </div>
-                      <div className="mb-2">
-                        <label className="block text-xs mb-1">Display Name</label>
-                        <input
-                          type="text"
-                          value={customModelName}
-                          onChange={(e) => setCustomModelName(e.target.value)}
-                          placeholder="e.g., Claude 3 Haiku"
-                          className="w-full p-2 text-xs border border-gray-300 rounded-md"
-                        />
-                      </div>
-                      <button
-                        onClick={addCustomModel}
-                        disabled={isVerifyingModel || !customModelId.trim() || !customModelName.trim()}
-                        className={`w-full p-2 rounded-md text-xs text-white ${
-                          isVerifyingModel || !customModelId.trim() || !customModelName.trim()
-                            ? 'bg-gray-400' 
-                            : 'bg-blue-500 hover:bg-blue-600'
-                        }`}
-                      >
-                        {isVerifyingModel ? (
-                          <>
-                            <Loader size={12} className="inline mr-1 animate-spin" />
-                            Verifying Model...
-                          </>
-                        ) : (
-                          'Add & Verify Model'
-                        )}
-                      </button>
-                    </div>
-                  )}
                   
                   <div className="mt-1 text-xs text-gray-500">
                     Currently using: <span className="font-semibold">{getModelDisplayName(model)}</span>
@@ -1027,72 +984,6 @@ export default function AIWritingAssistant() {
                   </div>
                   <div className="mt-1 text-xs text-gray-500">
                     {modelOptions.find(m => m.id === model)?.description}
-                  </div>
-                </div>
-
-                {/* Temperature Control */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium mb-2">
-                    Temperature: <span className="font-semibold">{temperature.toFixed(1)}</span>
-                    <button
-                      onClick={() => setShowTemperatureInfo(!showTemperatureInfo)}
-                      className="ml-1 text-gray-400 hover:text-gray-600"
-                      aria-label="Temperature information"
-                    >
-                      <Info size={14} />
-                    </button>
-                    
-                    {showTemperatureInfo && (
-                      <div 
-                        ref={temperatureInfoRef}
-                        className="absolute mt-1 w-64 bg-white rounded-md shadow-lg z-20 p-3 border border-gray-200 text-xs text-gray-700"
-                      >
-                        <h4 className="font-semibold mb-1">Understanding Temperature</h4>
-                        <p className="mb-2">Temperature controls the randomness of the AI's responses:</p>
-                        <div className="space-y-2 mb-2">
-                          <div>
-                            <div className="flex justify-between">
-                              <span className="font-medium">Low (0.1-0.4)</span>
-                              <span className="text-blue-600">More precise</span>
-                            </div>
-                            <p>Consistent, predictable, deterministic responses. Best for factual information.</p>
-                          </div>
-                          <div>
-                            <div className="flex justify-between">
-                              <span className="font-medium">Medium (0.5-0.7)</span>
-                              <span className="text-purple-600">Balanced</span>
-                            </div>
-                            <p>Good balance between creativity and focus. Works well for most tasks.</p>
-                          </div>
-                          <div>
-                            <div className="flex justify-between">
-                              <span className="font-medium">High (0.8-1.0)</span>
-                              <span className="text-pink-600">More creative</span>
-                            </div>
-                            <p>More varied, diverse, and sometimes unexpected outputs. Ideal for brainstorming.</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    <span className="ml-2 text-xs text-gray-500">
-                      {temperature < 0.4 ? '(More precise)' : 
-                       temperature > 0.8 ? '(More creative)' : 
-                       '(Balanced)'}
-                    </span>
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.1"
-                    value={temperature}
-                    onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>Precise</span>
-                    <span>Creative</span>
                   </div>
                 </div>
 
@@ -1281,8 +1172,105 @@ export default function AIWritingAssistant() {
                 </div>
               )}
             </div>
-            <button className="p-2 hover:bg-gray-100 rounded-md" title="Settings">
+            <button 
+              className="p-2 hover:bg-gray-100 rounded-md relative" 
+              title="Settings"
+              onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+            >
               <Settings size={18} className="text-gray-700" />
+              
+              {showSettingsMenu && (
+                <div 
+                  ref={settingsMenuRef}
+                  className="absolute right-0 mt-2 w-72 bg-white rounded-md shadow-lg overflow-hidden z-20 border border-gray-200"
+                  style={{ top: '100%' }}
+                >
+                  <div className="p-4">
+                    <h3 className="font-medium text-sm mb-4">Settings</h3>
+                    
+                    {/* Temperature Control */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium mb-2">
+                        Temperature: <span className="font-semibold">{temperature.toFixed(1)}</span>
+                        <button
+                          onClick={() => setShowTemperatureInfo(!showTemperatureInfo)}
+                          className="ml-1 text-gray-400 hover:text-gray-600"
+                          aria-label="Temperature information"
+                        >
+                          <Info size={14} />
+                        </button>
+                        
+                        {showTemperatureInfo && (
+                          <div 
+                            ref={temperatureInfoRef}
+                            className="absolute mt-1 w-64 bg-white rounded-md shadow-lg z-30 p-3 border border-gray-200 text-xs text-gray-700"
+                          >
+                            <h4 className="font-semibold mb-1">Understanding Temperature</h4>
+                            <p className="mb-2">Temperature controls the randomness of the AI's responses:</p>
+                            <div className="space-y-2 mb-2">
+                              <div>
+                                <div className="flex justify-between">
+                                  <span className="font-medium">Low (0.1-0.4)</span>
+                                  <span className="text-blue-600">More precise</span>
+                                </div>
+                                <p>Consistent, predictable, deterministic responses. Best for factual information.</p>
+                              </div>
+                              <div>
+                                <div className="flex justify-between">
+                                  <span className="font-medium">Medium (0.5-0.7)</span>
+                                  <span className="text-purple-600">Balanced</span>
+                                </div>
+                                <p>Good balance between creativity and focus. Works well for most tasks.</p>
+                              </div>
+                              <div>
+                                <div className="flex justify-between">
+                                  <span className="font-medium">High (0.8-1.0)</span>
+                                  <span className="text-pink-600">More creative</span>
+                                </div>
+                                <p>More varied, diverse, and sometimes unexpected outputs. Ideal for brainstorming.</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        <span className="ml-2 text-xs text-gray-500">
+                          {temperature < 0.4 ? '(More precise)' : 
+                           temperature > 0.8 ? '(More creative)' : 
+                           '(Balanced)'}
+                        </span>
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        value={temperature}
+                        onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>Precise</span>
+                        <span>Creative</span>
+                      </div>
+                    </div>
+                    
+                    {/* Custom Model Feature */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium mb-2">Custom Model</label>
+                      <button
+                        onClick={() => {
+                          setShowCustomModelForm(!showCustomModelForm);
+                          setShowSettingsMenu(false);
+                        }}
+                        className="w-full p-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm flex items-center justify-center"
+                      >
+                        <Plus size={16} className="mr-1" />
+                        Add Custom Model
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </button>
           </div>
         </div>
@@ -1603,6 +1591,64 @@ export default function AIWritingAssistant() {
           )}
         </div>
       </div>
+
+      {/* Custom Model Form Modal */}
+      {showCustomModelForm && (
+        <div 
+          ref={customModelFormRef}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+        >
+          <div className="bg-white rounded-lg shadow-xl p-6 w-96">
+            <h3 className="text-lg font-medium mb-4">Add Custom Model</h3>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1">Model ID</label>
+              <input
+                type="text"
+                value={customModelId}
+                onChange={(e) => setCustomModelId(e.target.value)}
+                placeholder="e.g., anthropic/claude-3-haiku-20240307"
+                className="w-full p-2 text-sm border border-gray-300 rounded-md"
+              />
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium mb-1">Display Name</label>
+              <input
+                type="text"
+                value={customModelName}
+                onChange={(e) => setCustomModelName(e.target.value)}
+                placeholder="e.g., Claude 3 Haiku"
+                className="w-full p-2 text-sm border border-gray-300 rounded-md"
+              />
+            </div>
+            <div className="flex justify-between">
+              <button
+                onClick={() => setShowCustomModelForm(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={addCustomModel}
+                disabled={isVerifyingModel || !customModelId.trim() || !customModelName.trim()}
+                className={`px-4 py-2 rounded-md text-white ${
+                  isVerifyingModel || !customModelId.trim() || !customModelName.trim()
+                    ? 'bg-gray-400' 
+                    : 'bg-blue-500 hover:bg-blue-600'
+                }`}
+              >
+                {isVerifyingModel ? (
+                  <>
+                    <Loader size={16} className="inline mr-2 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  'Add & Verify Model'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

@@ -32,6 +32,131 @@
   color: #343a40;
 }
 
+/* New model info styles */
+.model-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+}
+
+.model-display {
+  padding: 6px 10px;
+  background-color: #f1f5f9;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.model-name {
+  white-space: nowrap;
+}
+
+.settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: #6c757d;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.settings-btn:hover {
+  background-color: #e9ecef;
+  color: #495057;
+}
+
+.settings-menu {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  width: 280px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 12px 0;
+  z-index: 10;
+  overflow: hidden;
+  animation: fade-in 0.2s ease;
+}
+
+.settings-menu h4 {
+  font-size: 14px;
+  margin: 0;
+  padding: 0 16px 10px;
+  color: #4b5563;
+  font-weight: 500;
+}
+
+.model-option {
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.model-option:hover {
+  background-color: #f3f4f6;
+}
+
+.model-option.selected {
+  background-color: #f0f7ff;
+}
+
+.model-option-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.check-icon {
+  color: #4f46e5;
+}
+
+.model-option-desc {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 3px;
+}
+
+.settings-divider {
+  height: 1px;
+  background-color: #e5e7eb;
+  margin: 8px 0;
+}
+
+.clear-chat-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  color: #dc2626;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.clear-chat-option:hover {
+  background-color: #fee2e2;
+}
+
+.clear-chat-option:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+  background-color: transparent;
+}
+
+/* Old selector styles - keeping for reference but not using */
 .model-selector {
   display: flex;
   align-items: center;
@@ -386,5 +511,15 @@
   
   .starter-button {
     width: 100%;
+  }
+  
+  .model-display {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .settings-menu {
+    width: 250px;
   }
 } 

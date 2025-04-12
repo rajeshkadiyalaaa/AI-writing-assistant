@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Send, User, Bot, Loader, RefreshCw, ArrowDown, MessageSquare,
-  Wand2, Settings, Trash2, ChevronDown
+  Wand2, Settings, Trash2, ChevronDown, Info, Check
 } from 'lucide-react';
 import axios from 'axios';
 import './Chat.css';
@@ -14,6 +14,7 @@ const Chat = () => {
   const [selectedModel, setSelectedModel] = useState('');
   const [error, setError] = useState('');
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   
   // Typing animation states
   const [isTyping, setIsTyping] = useState(false);
@@ -31,8 +32,23 @@ const Chat = () => {
     "I need to create a summary of a long document"
   ];
 
+  // Model descriptions and recommendations
+  const modelDescriptions = {
+    'openrouter/quasar-alpha': 'Excellent for professional writing, business documents, and academic content',
+    'google/gemini-2.5-pro-exp-03-25:free': 'Strong at crafting concise and effective communications',
+    'deepseek/deepseek-chat-v3-0324:free': 'Specialized in technical content and research writing'
+  };
+
+  // Content type to recommended model mapping
+  const contentTypeModels = {
+    'business': 'openrouter/quasar-alpha',
+    'email': 'google/gemini-2.5-pro-exp-03-25:free',
+    'technical': 'deepseek/deepseek-chat-v3-0324:free'
+  };
+
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  const settingsMenuRef = useRef(null);
 
   // Fetch available models on component mount
   useEffect(() => {
@@ -48,6 +64,20 @@ const Chat = () => {
     };
     
     fetchModels();
+  }, []);
+
+  // Handle clicks outside the settings menu
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (settingsMenuRef.current && !settingsMenuRef.current.contains(event.target)) {
+        setShowSettingsMenu(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   // Typing animation effect
@@ -115,6 +145,7 @@ const Chat = () => {
     ]);
     
     try {
+      // Use the selected model without showing recommendation popup
       const response = await axios.post('/api/chat', {
         message: userInput,
         model: selectedModel
@@ -181,6 +212,23 @@ const Chat = () => {
     setError('');
   };
 
+  // Get the display name from the model ID
+  const getModelDisplayName = (modelId) => {
+    const model = models.find(m => m.id === modelId);
+    return model ? model.name : modelId.split('/').pop();
+  };
+
+  // Get recommendation tag based on model
+  const getModelRecommendation = (modelId) => {
+    const recommendations = {
+      'openrouter/quasar-alpha': '(Recommended for Business)',
+      'google/gemini-2.5-pro-exp-03-25:free': '(Recommended for Email)',
+      'deepseek/deepseek-chat-v3-0324:free': '(Recommended for Technical)'
+    };
+    
+    return recommendations[modelId] || '';
+  };
+
   return (
     <div className="chat-container">
       <div className="chat-header">
@@ -189,35 +237,60 @@ const Chat = () => {
           <h2>Chat Assistant</h2>
         </div>
         
-        <div className="model-selector">
-          <label htmlFor="model-select">Model:</label>
-          <select 
-            id="model-select"
-            value={selectedModel}
-            onChange={(e) => {
-              setSelectedModel(e.target.value);
-              // Clear chat messages when model changes
-              setMessages([]);
-              setError('');
-            }}
-            disabled={loading}
+        <div className="model-info">
+          <div className="model-display">
+            <span className="model-name">
+              Currently using: <strong>{getModelDisplayName(selectedModel)}</strong> {getModelRecommendation(selectedModel)}
+            </span>
+          </div>
+          
+          <button 
+            className="settings-btn" 
+            onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+            title="Settings"
           >
-            {models.map((model) => (
-              <option key={model.id} value={model.id}>
-                {model.name}
-              </option>
-            ))}
-          </select>
+            <Settings size={18} />
+          </button>
+          
+          {showSettingsMenu && (
+            <div className="settings-menu" ref={settingsMenuRef}>
+              <h4>Select Model</h4>
+              {models.map((model) => (
+                <div 
+                  key={model.id} 
+                  className={`model-option ${selectedModel === model.id ? 'selected' : ''}`}
+                  onClick={() => {
+                    setSelectedModel(model.id);
+                    setShowSettingsMenu(false);
+                    // Clear chat messages when model changes
+                    setMessages([]);
+                    setError('');
+                  }}
+                >
+                  <div className="model-option-name">
+                    {model.name}
+                    {selectedModel === model.id && <Check size={14} className="check-icon" />}
+                  </div>
+                  <div className="model-option-desc">
+                    {modelDescriptions[model.id] || 'General-purpose AI model'}
+                  </div>
+                </div>
+              ))}
+              <div className="settings-divider"></div>
+              <button 
+                className="clear-chat-option" 
+                onClick={() => {
+                  clearChat();
+                  setShowSettingsMenu(false);
+                }}
+                disabled={messages.length === 0}
+              >
+                <Trash2 size={14} />
+                Clear conversation
+              </button>
+            </div>
+          )}
         </div>
-        
-        <button 
-          className="clear-chat-btn" 
-          onClick={clearChat}
-          title="Clear chat"
-          disabled={loading || messages.length === 0}
-        >
-          <Trash2 size={18} />
-        </button>
       </div>
       
       <div className="chat-messages" ref={messagesContainerRef}>
