@@ -667,15 +667,15 @@ export default function AIWritingAssistant() {
         
         // Only add error suggestion if not already added for API key issues
         if (!errorMessage.includes('API key') && !errorMessage.includes('Authentication')) {
-          // Add improvement error as a suggestion
-          setSuggestions([
-            ...suggestions,
-            {
-              id: Date.now(),
-              type: 'grammar',
-              text: 'Unable to improve writing. Please try again or check your content.'
-            }
-          ]);
+      // Add improvement error as a suggestion
+      setSuggestions([
+        ...suggestions,
+        {
+          id: Date.now(),
+          type: 'grammar',
+          text: 'Unable to improve writing. Please try again or check your content.'
+        }
+      ]);
         }
       }
     } finally {
@@ -715,49 +715,152 @@ export default function AIWritingAssistant() {
       downloadFile(blob, filename);
     } 
     else if (format === 'pdf') {
-      // For PDF, we need to use a service or library
-      // Since we can't directly create PDFs in the browser,
-      // we'll use a simple HTML-to-PDF approach
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>${documentTitle}</title>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }
-            h1 { color: #333; }
-            pre { white-space: pre-wrap; }
-          </style>
-        </head>
-        <body>
-          <h1>${documentTitle}</h1>
-          <pre>${content}</pre>
-        </body>
-        </html>
-      `;
-      
-      const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
-      filename += '.html';
-      
-      // For demo purposes, we'll download HTML instead of PDF
-      // In a real app, you'd use a library like jsPDF or a backend service
-      downloadFile(htmlBlob, filename);
-      
-      // Show info about PDF limitations
-      setTimeout(() => {
-        alert('Note: For true PDF export, the application would need a PDF generation library like jsPDF or a backend service. The content has been downloaded as HTML for demonstration.');
-      }, 500);
+      try {
+        import('jspdf').then(({ default: jsPDF }) => {
+          import('jspdf-autotable').then(() => {
+            const doc = new jsPDF();
+            
+            // Add title
+            doc.setFontSize(18);
+            doc.text(documentTitle, 14, 22);
+            
+            // Add content with proper line breaks and formatting
+            doc.setFontSize(12);
+            const splitText = doc.splitTextToSize(content, 180);
+            doc.text(splitText, 14, 30);
+            
+            // Convert PDF to blob and download instead of using doc.save()
+            const pdfBlob = doc.output('blob');
+            downloadFile(pdfBlob, filename + '.pdf');
+          });
+        }).catch(err => {
+          console.error('Error generating PDF:', err);
+          // Fallback to basic HTML for demo purposes if library fails to load
+          const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <title>${documentTitle}</title>
+              <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }
+                h1 { color: #333; }
+                pre { white-space: pre-wrap; }
+              </style>
+            </head>
+            <body>
+              <h1>${documentTitle}</h1>
+              <pre>${content}</pre>
+            </body>
+            </html>
+          `;
+          
+          const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
+          downloadFile(htmlBlob, filename + '.html');
+          
+          showNotification('PDF generation failed. Using HTML format instead.', 'error');
+        });
+      } catch (error) {
+        console.error('Error in PDF generation:', error);
+        // Fallback for errors - use HTML instead of plain text
+        const htmlContent = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>${documentTitle}</title>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }
+              h1 { color: #333; }
+              pre { white-space: pre-wrap; }
+            </style>
+          </head>
+          <body>
+            <h1>${documentTitle}</h1>
+            <pre>${content}</pre>
+          </body>
+          </html>
+        `;
+        
+        const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
+        downloadFile(htmlBlob, filename + '.html');
+        showNotification('PDF export failed. Using HTML format instead.', 'warning');
+      }
     } 
     else if (format === 'docx') {
-      // For DOCX, we'd need a library like docx.js or a backend service
-      // For demo, we'll download the content as a text file
-      filename += '.txt';
-      downloadFile(blob, filename);
-      
-      // Show info about DOCX limitations
-      setTimeout(() => {
-        alert('Note: For true DOCX export, the application would need a library like docx.js or a backend service. The content has been downloaded as a text file for demonstration.');
-      }, 500);
+      try {
+        import('docx').then((docx) => {
+          const { Document, Paragraph, Packer } = docx;
+          
+          // Create document with paragraphs
+          const doc = new Document({
+            sections: [{
+              properties: {},
+              children: content.split('\n\n').map(para => 
+                new Paragraph({
+                  text: para,
+                })
+              ),
+            }],
+          });
+          
+          // Generate and save the docx file
+          Packer.toBlob(doc).then(blob => {
+            // Ensure the blob has the correct MIME type for Word
+            const wordBlob = new Blob([blob], { 
+              type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+            });
+            downloadFile(wordBlob, filename + '.docx');
+          });
+        }).catch(err => {
+          console.error('Error generating Word document:', err);
+          // Fallback to HTML if library fails to load
+          const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <title>${documentTitle}</title>
+              <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }
+                h1 { color: #333; }
+                pre { white-space: pre-wrap; }
+              </style>
+            </head>
+            <body>
+              <h1>${documentTitle}</h1>
+              <pre>${content}</pre>
+            </body>
+            </html>
+          `;
+          
+          const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
+          downloadFile(htmlBlob, filename + '.html');
+          
+          showNotification('Word document generation failed. Using HTML format instead.', 'error');
+        });
+      } catch (error) {
+        console.error('Error in Word document generation:', error);
+        // Fallback for errors - use HTML instead of plain text
+        const htmlContent = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>${documentTitle}</title>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }
+              h1 { color: #333; }
+              pre { white-space: pre-wrap; }
+            </style>
+          </head>
+          <body>
+            <h1>${documentTitle}</h1>
+            <pre>${content}</pre>
+          </body>
+          </html>
+        `;
+        
+        const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
+        downloadFile(htmlBlob, filename + '.html');
+        showNotification('Word export failed. Using HTML format instead.', 'warning');
+      }
     }
   };
   

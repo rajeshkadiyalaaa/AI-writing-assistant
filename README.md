@@ -1,16 +1,17 @@
-# Personal AI Writing Assistant
+# AI Writing Assistant
 
 A sophisticated AI-powered writing tool featuring a modern React frontend and Node.js/Python backend that helps users create, improve, and optimize various written content using the OpenRouter API with access to multiple LLM models.
 
-## What This Project Actually Does
+## What This Project Does
 
-The Personal AI Writing Assistant is a comprehensive writing enhancement platform that leverages large language models (LLMs) to help users at every stage of the writing process:
+The AI Writing Assistant is a comprehensive writing enhancement platform that leverages large language models (LLMs) to help users at every stage of the writing process:
 
 1. **Content Generation**: Creates high-quality first drafts based on minimal input, from emails to academic papers
 2. **Real-time Editing**: Provides inline suggestions, grammar corrections, and style improvements as you type
 3. **Content Transformation**: Converts between writing styles (formal, casual, technical) while preserving content
 4. **Quality Analysis**: Evaluates writing along multiple dimensions and suggests specific improvements
 5. **Document Management**: Maintains version history with intelligent comparisons between drafts
+6. **Multi-format Export**: Exports documents in Markdown, PDF, and Word formats with proper formatting
 
 ### User Flow and Interaction
 
@@ -29,7 +30,42 @@ This application uses a hybrid architecture:
 
 The system employs advanced prompt engineering to extract optimal performance from LLMs, with specialized prompts for different document types and writing tasks. Response processing includes structured parsing and quality evaluation to ensure consistently high-quality output.
 
-## Deployment with Vercel
+## Latest Updates
+
+- **Fixed PDF Export**: Implemented proper blob handling for PDF files with correct MIME types
+- **Improved Word Document Export**: Added proper MIME type handling for .docx files
+- **Enhanced Export Error Handling**: Added HTML fallback when PDF or Word generation fails
+- **Responsive Design Improvements**: Better mobile UI and sidebar usability
+- **Performance Optimizations**: Reduced token usage and improved response time
+
+## Deployment with GitHub and Vercel
+
+### GitHub Deployment
+
+1. **Initialize Git repository** (if not already done):
+   ```bash
+   git init
+   git add .
+   git commit -m "Initial commit"
+   ```
+
+2. **Create a GitHub repository**:
+   - Go to [GitHub](https://github.com) and create a new repository
+   - Follow the instructions to push your existing repository:
+   ```bash
+   git remote add origin https://github.com/yourusername/ai-writing-assistant.git
+   git branch -M main
+   git push -u origin main
+   ```
+
+3. **For future updates**:
+   ```bash
+   git add .
+   git commit -m "Your update message"
+   git push
+   ```
+
+### Vercel Deployment
 
 This project is configured for seamless deployment on Vercel:
 
@@ -69,7 +105,7 @@ The included `vercel.json` file handles the configuration for both frontend and 
 - **Advanced Style and Tone Customization**: Adjust temperature and select writing style (professional, casual, academic, etc.)
 - **Real-Time AI Suggestions**: Get instant feedback and improvements for your content
 - **Document Management System**: Save, organize, and compare different versions of your documents
-- **Smart Export Options**: Download your content in Markdown, PDF, and DOCX formats
+- **Smart Export Options**: Download your content in Markdown, PDF, and DOCX formats with proper formatting
 - **Custom Model Integration**: Add and use any model available through OpenRouter API
 - **Chat Interface**: Communicate directly with AI models to discuss your writing
 - **Content Analysis**: Get statistics and metrics about your writing
@@ -82,21 +118,24 @@ ai-writing-assistant/
 ├── frontend/                # React frontend application
 │   ├── src/                 # Frontend source code
 │   │   ├── components/      # React components
+│   │   ├── api/             # API integration
+│   │   ├── hooks/           # Custom React hooks
 │   │   └── styles/          # CSS and styling files
 │   ├── public/              # Static assets
 │   └── package.json         # Frontend dependencies
 ├── backend/                 # Node.js Express backend
 │   ├── scripts/             # Python scripts for AI processing
 │   │   ├── generate_response.py     # Generates AI responses
-│   │   ├── summarize_content.py     # Creates text summaries
 │   │   ├── generate_suggestions.py  # Provides writing suggestions
 │   │   ├── improve_readability.py   # Enhances text clarity
+│   │   ├── test_api_key.py          # Tests the OpenRouter API key
 │   │   └── utils.py                 # Shared utility functions
 │   ├── server.js            # Express server entry point
 │   └── package.json         # Backend dependencies
 ├── package.json             # Root package.json for running both apps
 ├── requirements.txt         # Python dependencies
-└── .env.example             # Example environment variables
+├── vercel.json              # Vercel deployment configuration
+└── .env                     # Environment variables
 ```
 
 ## System Requirements
@@ -118,6 +157,8 @@ ai-writing-assistant/
 - Lucide React (for icons)
 - Axios (for API requests)
 - React Markdown (for rendering)
+- jsPDF (for PDF export)
+- docx (for Word document export)
 
 ### Backend Dependencies
 - Express 4.x
@@ -125,21 +166,20 @@ ai-writing-assistant/
 - Body-parser
 - Node-fetch
 - Dotenv
+- Child_process (for Python script execution)
 
 ### Python Dependencies
-- NLTK
-- SQLAlchemy
 - Requests
 - Python-dotenv
-- Statistics
-- Typing extensions
+- SQLAlchemy (for database operations)
+- NLTK (for natural language processing)
 
 ## Quick Setup
 
 1. Clone this repository:
    ```
-   git clone https://github.com/rajeshkadiyalaaa/AI-writing-assistant.git
-   cd AI-writing-assistant
+   git clone https://github.com/yourusername/ai-writing-assistant.git
+   cd ai-writing-assistant
    ```
 
 2. Create a `.env` file in the root directory with your API key and preferred model:
@@ -229,7 +269,6 @@ npm start
 The Python scripts in the `backend/scripts` directory handle the core AI functionality:
 
 - **generate_response.py**: Creates responses based on user prompts with customizable parameters
-- **summarize_content.py**: Generates summaries with adjustable length and focus points
 - **generate_suggestions.py**: Provides detailed writing improvement suggestions
 - **improve_readability.py**: Enhances text for better readability and clarity
 - **utils.py**: Shared utility functions for all scripts
@@ -247,126 +286,39 @@ The backend provides several REST API endpoints:
   - Returns: AI response in conversational format
 
 - **POST /api/suggestions**: Get writing improvement suggestions
-  - Parameters: `content`, `documentType`, `tone`
-  - Returns: Categorized suggestions for grammar, style, structure, clarity, and content
+  - Parameters: `content`, `documentType`, `tone`, `model`
+  - Returns: Structured suggestions for improving the content
 
-- **POST /api/improve**: Enhance content readability
-  - Parameters: `content`, `targetAudience`, `readingLevel`, `additionalInstructions`
-  - Returns: Improved content with readability metrics
+- **POST /api/improve**: Improve the readability of content
+  - Parameters: `content`, `targetAudience`, `readingLevel`, `additionalInstructions`, `model`
+  - Returns: Improved content with better readability
 
-- **POST /api/verify-model**: Verify custom model availability
-  - Parameters: `model` (model ID to verify)
-  - Returns: Success status and model information
+- **POST /api/verify-model**: Verify a custom model from OpenRouter
+  - Parameters: `model`, `apiKey`
+  - Returns: Verification status and model details
 
-- **GET /api/models**: Retrieve available AI models
+- **POST /api/settings/apikey**: Update the OpenRouter API key
+  - Parameters: `apiKey`
+  - Returns: Success status and masked API key
+
+- **GET /api/settings/apikey**: Get the masked API key
+  - Returns: Masked API key and status
+
+- **GET /api/models**: Get available models
   - Returns: List of available models and default model
 
-## Response Quality Improvements
-
-The system includes advanced response processing capabilities to ensure high-quality AI outputs:
-
-### Enhanced Response Parsing
-
-- **Structured Content Extraction**: Automatically identifies sections, lists, and content structure
-- **Code Block Detection**: Isolates and properly formats code snippets in responses
-- **Key-Value Recognition**: Extracts structured data like key-value pairs from responses
-
-### Statistical Analysis
-
-- **Detailed Metrics**: Calculates comprehensive statistics including sentence variety, lexical diversity, and content type indicators
-- **Content Classification**: Analyzes whether content is primarily explanatory, instructional, analytical, or persuasive
-- **Readability Assessment**: Evaluates sentence and paragraph structure for optimal readability
-
-### Quality Evaluation
-
-- **Multi-dimensional Scoring**: Evaluates responses on relevance, coherence, completeness, and structure
-- **Contextual Evaluation**: Compares responses to original prompts for relevance
-- **Issue Detection**: Identifies potential problems like repetition, inconsistency, or excessively long sentences
-- **Automated Quality Warnings**: Flags responses that fall below quality thresholds
-
-All API responses include this enhanced data, enabling intelligent presentation and feedback in the frontend.
-
-## Available Scripts
-
-In the root directory, you can run:
-
-- `npm start` - Runs both frontend and backend
-- `npm run frontend` - Runs only the React frontend
-- `npm run backend` - Runs only the Node.js backend
-- `npm run install-all` - Installs dependencies for all parts of the application
-- `npm run build` - Builds the React frontend for production
-
-## Model Selection
-
-You can use any model available through OpenRouter by specifying it in your `.env` file. Some recommended options include:
-
-- **Free Tier Models**:
-  - `nvidia/llama-3.1-nemotron-nano-8b-v1:free` - Good balance of performance and speed
-  - `google/gemini-2.5-pro-exp-03-25:free` - Strong reasoning capabilities
-  - `deepseek/deepseek-chat-v3-0324:free` - Efficient knowledge retrieval
-
-- **Premium Models**:
-  - `openai/gpt-4o` - High performance general purpose model
-  - `anthropic/claude-3-opus` - Excellent for complex writing tasks
-  - `anthropic/claude-3-sonnet` - Good balance of quality and cost
-  - `mistralai/mistral-large` - Strong performance for technical content
-
-The application also supports adding custom models through the UI.
-
-## Performance Considerations
-
-- **Response Time**: Typical response times range from 1-5 seconds depending on the model and request complexity
-- **Token Usage**: The application optimizes prompts to minimize token usage while maintaining quality
-- **Caching**: Frequently used responses are cached to improve performance and reduce API costs
-- **Connection Management**: The application handles connection interruptions gracefully with automatic retry logic
-
-## Security Features
-
-- Environment variables for sensitive configuration
-- API key validation and secure storage
-- Input sanitization to prevent injection attacks
-- Rate limiting to prevent abuse
-- No storage of user credentials (if implementing authentication)
-
-## Troubleshooting
-
-### Common Issues
-
-1. **API Key Issues**:
-   - Ensure your OpenRouter API key is correctly set in the `.env` file
-   - Verify API key has not expired or reached usage limits
-
-2. **Connection Errors**:
-   - Check that both frontend and backend servers are running
-   - Verify ports 3000 and 5000 are not being used by other applications
-
-3. **Python Dependency Issues**:
-   - Make sure all required Python packages are installed
-   - Use a virtual environment to avoid conflicts
-
-4. **Model Availability**:
-   - Some models may have downtime or rate limits
-   - Try switching to a different model if encountering persistent errors
-
-## License
-
-MIT License
+- **GET /api/health**: Health check endpoint
+  - Returns: Server status and version information
 
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-To contribute to this project:
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Commit your changes (`git commit -m 'Add some amazing feature'`)
-5. Push to the branch (`git push origin feature/amazing-feature`)
-6. Open a Pull Request
+## License
 
-## Acknowledgements
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-- This project uses [OpenRouter](https://openrouter.ai) to access various LLM models
-- Built with React, Node.js, and Python
-- Uses SQLite for data storage
-- Includes integrations with various text processing libraries 
+## Acknowledgments
+
+- Thanks to OpenRouter for providing access to multiple AI models through a single API
+- All the open-source libraries and frameworks that made this project possible 
