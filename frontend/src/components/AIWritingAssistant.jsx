@@ -417,12 +417,20 @@ export default function AIWritingAssistant() {
       }
       
       console.log("Sending request to generate suggestions...");
+      
+      // Determine which model to use
+      let selectedModel = model;
+      // If the default model is the problematic one, try to suggest an alternative
+      if (selectedModel.includes("nvidia/llama-3.1-nemotron-nano")) {
+        console.log("Using potentially problematic model, suggesting alternative in case of failure");
+      }
+      
       // Call backend API for suggestions
       const response = await axios.post('/api/suggestions', {
         content: content,
         documentType: documentType,
         tone: tone,
-        model: model
+        model: selectedModel
       });
       
       console.log("Response received:", response.data);
@@ -471,7 +479,7 @@ export default function AIWritingAssistant() {
         }
         
         const normalizedSuggestions = normalizeSuggestions(suggestionsData);
-        console.log('Normalized suggestions:', normalizedSuggestions);
+      console.log('Normalized suggestions:', normalizedSuggestions);
         
         if (normalizedSuggestions.length === 0) {
           console.log('No suggestions were generated, using fallback');
@@ -483,17 +491,17 @@ export default function AIWritingAssistant() {
             }
           ]);
         } else {
-          setSuggestions(normalizedSuggestions);
+      setSuggestions(normalizedSuggestions);
         }
-        
-        // Add to history
-        const now = new Date();
-        setHistory([...history, {
-          id: history.length + 1,
-          timestamp: now.toLocaleTimeString(),
-          action: `Generated suggestions with ${getModelDisplayName(model)}`,
-          version: history.length + 1
-        }]);
+      
+      // Add to history
+      const now = new Date();
+      setHistory([...history, {
+        id: history.length + 1,
+        timestamp: now.toLocaleTimeString(),
+        action: `Generated suggestions with ${getModelDisplayName(model)}`,
+        version: history.length + 1
+      }]);
       } catch (processingError) {
         console.error('Error processing suggestions response:', processingError);
         showNotification('Error processing suggestions. Please try again.', 'error');
@@ -503,8 +511,25 @@ export default function AIWritingAssistant() {
       }
     } catch (error) {
       console.error('Error generating suggestions:', error);
-      // Show error as a toast notification
-      showNotification(`Error generating suggestions: ${error.message || 'Unknown error'}`, 'error');
+      
+      // Check if this is a model-specific error
+      const errorMessage = error.message || '';
+      const responseData = error.response?.data;
+      
+      if (
+        errorMessage.includes("API request failed") ||
+        errorMessage.includes("choices") ||
+        (responseData && responseData.error && (
+          responseData.error.includes("model") ||
+          responseData.error.includes("format")
+        ))
+      ) {
+        // This appears to be a model-specific error
+        handleModelError(error, 'generating suggestions');
+      } else {
+        // Generic error handling
+        showNotification(`Error generating suggestions: ${errorMessage || 'Unknown error'}`, 'error');
+      }
       
       // Fallback with demo suggestions if not already set
       if (suggestions.length === 0) {
@@ -622,20 +647,36 @@ export default function AIWritingAssistant() {
     } catch (error) {
       console.error('Error improving writing:', error);
       
-      // Show error as a toast notification
-      showNotification(`Error improving writing: ${error.message || 'Unknown error'}`, 'error');
+      // Check if this is a model-specific error
+      const errorMessage = error.message || '';
+      const responseData = error.response?.data;
       
-      // Only add error suggestion if not already added for API key issues
-      if (!error.message.includes('API key') && !error.message.includes('Authentication')) {
-        // Add improvement error as a suggestion
-        setSuggestions([
-          ...suggestions,
-          {
-            id: Date.now(),
-            type: 'grammar',
-            text: 'Unable to improve writing. Please try again or check your content.'
-          }
-        ]);
+      if (
+        errorMessage.includes("API request failed") ||
+        errorMessage.includes("choices") ||
+        (responseData && responseData.error && (
+          responseData.error.includes("model") ||
+          responseData.error.includes("format")
+        ))
+      ) {
+        // This appears to be a model-specific error
+        handleModelError(error, 'improving writing');
+      } else {
+        // Generic error handling
+        showNotification(`Error improving writing: ${errorMessage || 'Unknown error'}`, 'error');
+        
+        // Only add error suggestion if not already added for API key issues
+        if (!errorMessage.includes('API key') && !errorMessage.includes('Authentication')) {
+          // Add improvement error as a suggestion
+          setSuggestions([
+            ...suggestions,
+            {
+              id: Date.now(),
+              type: 'grammar',
+              text: 'Unable to improve writing. Please try again or check your content.'
+            }
+          ]);
+        }
       }
     } finally {
       setIsGenerating(false);
@@ -1287,8 +1328,8 @@ export default function AIWritingAssistant() {
         setApiKeyError('API endpoint not found. Please check if the OpenRouter API URL has changed.');
         showNotification('API connection issue. Try again later.', 'error');
       } else {
-        setApiKeyError('Failed to validate API key: ' + (error.response?.data?.error || error.message));
-        showNotification('Failed to validate API key', 'error');
+      setApiKeyError('Failed to validate API key: ' + (error.response?.data?.error || error.message));
+      showNotification('Failed to validate API key', 'error');
       }
     } finally {
       setIsTestingApiKey(false);
@@ -1432,6 +1473,44 @@ export default function AIWritingAssistant() {
     
     // Show feedback notification
     showNotification(`Thank you for your feedback on this ${suggestion.type} suggestion!`, 'success');
+  };
+
+  // Function to handle model errors and provide alternatives
+  const handleModelError = (error, operation) => {
+    console.error(`Error in ${operation}:`, error);
+    
+    const currentModelName = getModelDisplayName(model);
+    let alternativeModel = null;
+    
+    // Suggest an alternative model based on the current one
+    if (model.includes("nvidia/llama-3.1-nemotron-nano")) {
+      // If using problematic Nvidia model, suggest OpenAI model
+      alternativeModel = "openai/gpt-3.5-turbo";
+    } else if (model.includes("openai/gpt-3.5-turbo")) {
+      // If using GPT-3.5, suggest Claude
+      alternativeModel = "anthropic/claude-instant-1.2";
+    } else {
+      // Default fallback to GPT-3.5
+      alternativeModel = "openai/gpt-3.5-turbo";
+    }
+    
+    // Create suggestion message with alternative
+    const altModelName = alternativeModel.split('/').pop();
+    
+    showNotification(
+      `There was an issue with ${currentModelName}. Try using ${altModelName} instead.`, 
+      'warning'
+    );
+    
+    // Add a suggestion with instructions
+    setSuggestions([
+      ...suggestions,
+      {
+        id: Date.now(),
+        type: 'grammar',
+        text: `The current model (${currentModelName}) encountered an error. You might want to try a different model such as ${altModelName}. You can change models in the settings panel.`
+      }
+    ]);
   };
 
   return (
@@ -2561,7 +2640,7 @@ export default function AIWritingAssistant() {
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.5 }}
                     className={`text-center text-sm py-10 ${
-                      isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
                     }`}
                   >
                     {!apiKeySet ? (
@@ -2577,9 +2656,9 @@ export default function AIWritingAssistant() {
                           whileHover={{ rotate: 180 }}
                           transition={{ duration: 0.5 }}
                         >
-                          <RefreshCw className="mx-auto mb-2" size={20} />
+                    <RefreshCw className="mx-auto mb-2" size={20} />
                         </motion.div>
-                        Click "Generate Suggestions" to get AI feedback on your writing
+                    Click "Generate Suggestions" to get AI feedback on your writing
                       </>
                     )}
                   </motion.div>
@@ -2710,7 +2789,7 @@ export default function AIWritingAssistant() {
                               <ThumbsDown size={12} className="inline mr-1" />
                               No
                             </motion.button>
-                          </div>
+                    </div>
                         </div>
                       )}
                       

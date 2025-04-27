@@ -151,7 +151,7 @@ CLARITY:
 2. The paragraph about data collection procedures contains excessive jargon. Consider defining technical terms or replacing them with more accessible alternatives to improve readability.
 """
 
-    # Prepare the request
+    # Prepare the request with model-specific adjustments
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -166,17 +166,41 @@ CLARITY:
         {"role": "user", "content": f"Please analyze this {document_type} content and provide specific improvement suggestions:\n\n{content}"}
     ]
     
-    payload = {
-        "model": model,
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-        "top_p": top_p,
-        "frequency_penalty": frequency_penalty,
-        "presence_penalty": presence_penalty
-    }
+    # Create model-specific payloads
+    if "nvidia/llama-3.1-nemotron-nano" in model:
+        print(f"Debug - Detected Nvidia Llama model, using optimized parameters", file=sys.stderr)
+        # Optimize for Nvidia Llama models
+        payload = {
+            "model": model,
+            "prompt": f"<|system|>\n{system_message}\n<|user|>\nPlease analyze this {document_type} content and provide specific improvement suggestions:\n\n{content}\n<|assistant|>",
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "top_p": top_p,
+            "stop": ["<|user|>", "<|system|>"],
+            "frequency_penalty": frequency_penalty,
+            "presence_penalty": presence_penalty
+        }
+    else:
+        # Standard format for other models
+        payload = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "top_p": top_p,
+            "frequency_penalty": frequency_penalty,
+            "presence_penalty": presence_penalty
+        }
     
     print(f"Debug - Using model: {model} for suggestions", file=sys.stderr)
+    print(f"Debug - Payload format: {'prompt-based' if 'prompt' in payload else 'messages-based'}", file=sys.stderr)
+    
+    # For nvidia models, use a different endpoint if needed
+    api_endpoint = "https://openrouter.ai/api/v1/chat/completions"
+    if "nvidia/llama-3.1-nemotron-nano" in model:
+        # Check if we need to use a different endpoint for this model
+        # Some providers require model-specific endpoints
+        print(f"Debug - Using standard API endpoint for Nvidia model: {api_endpoint}", file=sys.stderr)
     
     try:
         # Implement retry logic
@@ -187,7 +211,7 @@ CLARITY:
             try:
                 print(f"Debug - Attempt {attempt+1} to generate suggestions", file=sys.stderr)
                 response = requests.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
+                    api_endpoint,
                     headers=headers,
                     json=payload,
                     timeout=30
@@ -211,8 +235,34 @@ CLARITY:
                 if response.status_code == 200:
                     response_data = response.json()
                     
-                    # Extract the assistant's message
-                    suggestions = response_data.get('choices', [{}])[0].get('message', {}).get('content', '')
+                    # Debug the complete response for troubleshooting
+                    print(f"Debug - Raw API response: {response_data}", file=sys.stderr)
+                    
+                    # Extract the assistant's message with robust error handling
+                    try:
+                        choices = response_data.get('choices', [])
+                        if not choices or len(choices) == 0:
+                            print(f"Warning: Response doesn't contain 'choices' array or it's empty", file=sys.stderr)
+                            # Try alternative response formats
+                            print(f"Attempting to extract content from alternative response formats...", file=sys.stderr)
+                            suggestions = handle_alternative_response_formats(response_data)
+                        else:
+                            message = choices[0].get('message', {})
+                            if not message:
+                                print(f"Warning: Response doesn't contain 'message' in the first choice", file=sys.stderr)
+                                # Try alternative response formats
+                                suggestions = handle_alternative_response_formats(response_data)
+                            else:
+                                suggestions = message.get('content', '')
+                                if not suggestions:
+                                    print(f"Warning: Response doesn't contain 'content' in the message", file=sys.stderr)
+                                    # Try alternative response formats
+                                    suggestions = handle_alternative_response_formats(response_data)
+                    except Exception as e:
+                        print(f"Exception when extracting suggestions from response: {str(e)}", file=sys.stderr)
+                        print(f"Response data structure: {response_data.keys() if hasattr(response_data, 'keys') else 'Not a dictionary'}", file=sys.stderr)
+                        # Try alternative response formats as a last resort
+                        suggestions = handle_alternative_response_formats(response_data)
                     
                     # Apply enhanced response processing
                     enriched_response = enrich_ai_response(suggestions, content[:300])  # Using the first 300 chars of content as context
@@ -623,6 +673,59 @@ def process_with_chunking_and_caching(content, document_type, tone, model):
     # suggestion_cache[cache_key] = all_suggestions
     
     return result  # Return the first chunk to process
+
+def handle_alternative_response_formats(response_data):
+    """
+    Handle alternative response formats that OpenRouter might return
+    depending on the underlying model provider
+    """
+    # Try different known response formats
+    
+    # Format 1: OpenAI-style format (most common)
+    if 'choices' in response_data and isinstance(response_data['choices'], list) and len(response_data['choices']) > 0:
+        choice = response_data['choices'][0]
+        if 'message' in choice and 'content' in choice['message']:
+            return choice['message']['content']
+        elif 'text' in choice:  # Some models return direct text
+            return choice['text']
+            
+    # Format 2: Direct output in 'output' field
+    if 'output' in response_data:
+        if isinstance(response_data['output'], str):
+            return response_data['output']
+        elif isinstance(response_data['output'], dict) and 'text' in response_data['output']:
+            return response_data['output']['text']
+    
+    # Format 3: Response directly in 'response' field
+    if 'response' in response_data:
+        if isinstance(response_data['response'], str):
+            return response_data['response']
+    
+    # Format 4: Some models use 'generations' format
+    if 'generations' in response_data and isinstance(response_data['generations'], list) and len(response_data['generations']) > 0:
+        generation = response_data['generations'][0]
+        if 'text' in generation:
+            return generation['text']
+        elif 'content' in generation:
+            return generation['content']
+    
+    # Format 5: Anthropic-style format
+    if 'completion' in response_data:
+        return response_data['completion']
+        
+    # Format 6: Simplified output
+    if 'output_text' in response_data:
+        return response_data['output_text']
+    
+    # If nothing found, look for any key that might contain the response text
+    text_field_candidates = ['text', 'content', 'message', 'result', 'answer']
+    for field in text_field_candidates:
+        if field in response_data and isinstance(response_data[field], str):
+            return response_data[field]
+    
+    # Last resort: return all keys found in the response
+    keys_found = str(list(response_data.keys()))
+    return f"Could not extract suggestion text. Response keys found: {keys_found}"
 
 if __name__ == "__main__":
     # Read the input data from command line argument
