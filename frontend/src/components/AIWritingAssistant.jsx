@@ -3,9 +3,45 @@ import {
   PenTool, Save, Download, History, Settings, 
   Trash2, Check, RefreshCw, Send, FileText, 
   BookOpen, Mail, Edit3, ChevronDown, Loader,
-  MessageCircle, Bot, Info, Plus
+  MessageCircle, Bot, Info, Plus, Key, Eye, EyeOff,
+  AlertCircle, Copy, Shield, AlertTriangle, Moon, Sun,
+  Cpu
 } from 'lucide-react';
 import axios from 'axios';
+// Import Framer Motion for animations
+import { motion, AnimatePresence } from 'framer-motion';
+
+// Animation variants for different UI elements
+const fadeIn = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.3 } }
+};
+
+const slideInFromRight = {
+  hidden: { x: 20, opacity: 0 },
+  visible: { x: 0, opacity: 1, transition: { type: 'spring', stiffness: 300, damping: 30 } }
+};
+
+const slideInFromLeft = {
+  hidden: { x: -20, opacity: 0 },
+  visible: { x: 0, opacity: 1, transition: { type: 'spring', stiffness: 300, damping: 30 } }
+};
+
+const popIn = {
+  hidden: { scale: 0.8, opacity: 0 },
+  visible: { scale: 1, opacity: 1, transition: { type: 'spring', stiffness: 300, damping: 25 } }
+};
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: { 
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.07,
+      delayChildren: 0.1
+    }
+  }
+};
 
 export default function AIWritingAssistant() {
   const [content, setContent] = useState('');
@@ -36,6 +72,35 @@ export default function AIWritingAssistant() {
   const [showTemperatureInfo, setShowTemperatureInfo] = useState(false);
   const [showModelInfo, setShowModelInfo] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  // New state variables for API key management
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [maskedApiKey, setMaskedApiKey] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [apiKeySet, setApiKeySet] = useState(false);
+  const [isUpdatingApiKey, setIsUpdatingApiKey] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState('');
+  // Add state for API key modal
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  // New state variables for enhanced API key features
+  const [copied, setCopied] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success'); // 'success', 'error', 'info'
+  const [isTestingApiKey, setIsTestingApiKey] = useState(false);
+  const [apiKeyTestSuccess, setApiKeyTestSuccess] = useState(false);
+  const [rememberKey, setRememberKey] = useState(true);
+  const [showSecurityInfo, setShowSecurityInfo] = useState(false);
+  
+  // Dark Mode state
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    // Check localStorage first, then use system preference as fallback
+    const savedMode = localStorage.getItem('dark_mode');
+    if (savedMode !== null) {
+      return savedMode === 'true';
+    }
+    // If no saved preference, use system preference
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
   
   // Panel resizing state
   const [leftPanelWidth, setLeftPanelWidth] = useState(() => {
@@ -58,6 +123,8 @@ export default function AIWritingAssistant() {
   const modelInfoRef = useRef(null);
   const customModelFormRef = useRef(null);
   const settingsMenuRef = useRef(null);
+  const apiKeyModalRef = useRef(null);
+  const securityInfoRef = useRef(null);
   
   const [savedDocuments, setSavedDocuments] = useState([
     { id: 1, title: 'Project Proposal', date: '2025-04-08', type: 'business', content: 'This is a sample project proposal document.' },
@@ -88,8 +155,13 @@ export default function AIWritingAssistant() {
     'persuasive', 'informative', 'entertaining'
   ];
 
-  // LLM Models with display names and strengths
-  const modelOptions = [
+  // LLM Models with display names and strengths - now using a proper React state variable
+  const [modelOptions, setModelOptions] = useState(() => {
+    // Load any saved custom models from localStorage
+    const savedCustomModels = JSON.parse(localStorage.getItem('custom_models') || '[]');
+    
+    // Start with the default models
+    const defaultModels = [
     { 
       id: 'nvidia/llama-3.1-nemotron-nano-8b-v1:free', 
       name: 'nvidia-llama-3.1',
@@ -112,6 +184,10 @@ export default function AIWritingAssistant() {
       free: true
     }
   ];
+    
+    // Combine with any saved custom models
+    return [...defaultModels, ...savedCustomModels];
+  });
 
   // Get recommended model for current document type
   const getRecommendedModel = (docType) => {
@@ -260,18 +336,28 @@ export default function AIWritingAssistant() {
 
   // Function to convert suggestions object to array if needed
   const normalizeSuggestions = (suggestionData) => {
-    if (!suggestionData) return [];
+    console.log('Raw suggestion data:', suggestionData);
+    
+    if (!suggestionData) {
+      console.log('No suggestion data provided');
+      return [];
+    }
     
     // If it's already an array, return it
-    if (Array.isArray(suggestionData)) return suggestionData;
+    if (Array.isArray(suggestionData)) {
+      console.log('Suggestion data is already an array');
+      return suggestionData;
+    }
     
     // If it's a categorized object (from the Python script), convert to array
     if (typeof suggestionData === 'object') {
+      console.log('Normalizing object-based suggestions');
       const result = [];
       let idCounter = 1;
       
       // Process each category
       Object.entries(suggestionData).forEach(([category, items]) => {
+        console.log(`Processing category: ${category}, items:`, items);
         if (Array.isArray(items)) {
           items.forEach(text => {
             result.push({
@@ -283,9 +369,21 @@ export default function AIWritingAssistant() {
         }
       });
       
+      console.log('Normalized suggestions:', result);
       return result;
     }
     
+    // Handle string response case (sometimes the API returns a raw string)
+    if (typeof suggestionData === 'string') {
+      console.log('Suggestion data is a string, creating a single suggestion');
+      return [{
+        id: 1,
+        type: 'improvement',
+        text: suggestionData
+      }];
+    }
+    
+    console.log('Unhandled suggestion data type, returning empty array');
     return [];
   };
   
@@ -310,6 +408,15 @@ export default function AIWritingAssistant() {
     setIsGenerating(true);
     
     try {
+      // If no API key is set, show demo suggestions immediately
+      if (!apiKeySet) {
+        console.log("No API key set, showing demo suggestions");
+        setSuggestions(generateDemoSuggestions());
+        showNotification('API key required for actual suggestions', 'warning');
+        return;
+      }
+      
+      console.log("Sending request to generate suggestions...");
       // Call backend API for suggestions
       const response = await axios.post('/api/suggestions', {
         content: content,
@@ -318,27 +425,91 @@ export default function AIWritingAssistant() {
         model: model
       });
       
-      // Handle the response, normalizing the suggestions data
-      const normalizedSuggestions = normalizeSuggestions(response.data.suggestions);
-      console.log('Normalized suggestions:', normalizedSuggestions);
-      setSuggestions(normalizedSuggestions);
+      console.log("Response received:", response.data);
       
-      // Add to history
-      const now = new Date();
-      setHistory([...history, {
-        id: history.length + 1,
-        timestamp: now.toLocaleTimeString(),
-        action: `Generated suggestions with ${getModelDisplayName(model)}`,
-        version: history.length + 1
-      }]);
+      // Check if there's an error in the response
+      if (response.data.error) {
+        // Handle authentication errors specifically
+        if (response.data.error.includes("Authentication failed") || 
+            response.data.error.includes("401") || 
+            (response.data.details && response.data.details.includes("API key"))) {
+          console.error('Authentication error:', response.data.error);
+          showNotification('API key invalid or expired. Please update your API key.', 'error');
+          
+          // Use demo suggestions
+          setSuggestions(generateDemoSuggestions());
+          
+          // Prompt user to update their API key
+          setTimeout(() => {
+            setShowApiKeyModal(true);
+          }, 1000);
+          
+          throw new Error('Authentication failed. Please update your API key.');
+        }
+        
+        throw new Error(response.data.error);
+      }
+      
+      // Handle the response, normalizing the suggestions data
+      try {
+        // Check if we have structured suggestions or raw suggestions
+        let suggestionsData = response.data.suggestions;
+        
+        if (!suggestionsData && response.data.raw_suggestions) {
+          console.log('Using raw suggestions as fallback');
+          // Try to manually parse from raw suggestions if structured parsing failed
+          suggestionsData = {
+            'improvement': [response.data.raw_suggestions]
+          };
+        }
+        
+        // For fallback case when backend returns example suggestions directly
+        if (!suggestionsData && Array.isArray(response.data) && response.data.length > 0) {
+          console.log('API returned direct array of suggestions');
+          setSuggestions(response.data);
+          return;
+        }
+        
+        const normalizedSuggestions = normalizeSuggestions(suggestionsData);
+        console.log('Normalized suggestions:', normalizedSuggestions);
+        
+        if (normalizedSuggestions.length === 0) {
+          console.log('No suggestions were generated, using fallback');
+          setSuggestions([
+            { 
+              id: Date.now(), 
+              type: 'improvement', 
+              text: 'The system couldn\'t generate specific suggestions. Try providing more context or a longer piece of text.' 
+            }
+          ]);
+        } else {
+          setSuggestions(normalizedSuggestions);
+        }
+        
+        // Add to history
+        const now = new Date();
+        setHistory([...history, {
+          id: history.length + 1,
+          timestamp: now.toLocaleTimeString(),
+          action: `Generated suggestions with ${getModelDisplayName(model)}`,
+          version: history.length + 1
+        }]);
+      } catch (processingError) {
+        console.error('Error processing suggestions response:', processingError);
+        showNotification('Error processing suggestions. Please try again.', 'error');
+        
+        // Use demo suggestions as fallback
+        setSuggestions(generateDemoSuggestions());
+      }
     } catch (error) {
       console.error('Error generating suggestions:', error);
-      // Fallback with demo suggestions
-      setSuggestions([
-        { id: 1, type: 'improvement', text: 'Consider using more concise language in the introduction.' },
-        { id: 2, type: 'alternative', text: 'Alternative phrasing: "The implementation of this system would significantly enhance productivity."' },
-        { id: 3, type: 'grammar', text: 'Grammar issue: Change "their" to "there" in paragraph 2.' }
-      ]);
+      // Show error as a toast notification
+      showNotification(`Error generating suggestions: ${error.message || 'Unknown error'}`, 'error');
+      
+      // Fallback with demo suggestions if not already set
+      if (suggestions.length === 0) {
+        setSuggestions(generateDemoSuggestions());
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -351,6 +522,30 @@ export default function AIWritingAssistant() {
     setIsGenerating(true);
     
     try {
+      // If no API key is set, show notification immediately
+      if (!apiKeySet) {
+        console.log("No API key set, cannot improve writing");
+        showNotification('API key required to improve writing', 'warning');
+        
+        // Add API key required suggestion
+        setSuggestions([
+          ...suggestions,
+          {
+            id: Date.now(),
+            type: 'grammar',
+            text: 'API key required: Please update your API key to use the improve writing feature.'
+          }
+        ]);
+        
+        // Prompt user to update their API key
+        setTimeout(() => {
+          setShowApiKeyModal(true);
+        }, 1000);
+        
+        return;
+      }
+      
+      console.log("Sending request to improve writing...");
       // Call backend API to improve the writing
       const response = await axios.post('/api/improve', {
         content: content,
@@ -359,6 +554,38 @@ export default function AIWritingAssistant() {
         additionalInstructions: `Use a ${tone} tone.`,
         model: model
       });
+      
+      console.log("Response received:", response.data);
+      
+      // Check if there's an error in the response
+      if (response.data.error) {
+        // Handle authentication errors specifically
+        if (response.data.error.includes("Authentication failed") || 
+            response.data.error.includes("401") || 
+            (response.data.details && response.data.details.includes("API key"))) {
+          console.error('Authentication error:', response.data.error);
+          showNotification('API key invalid or expired. Please update your API key.', 'error');
+          
+          // Add API key error suggestion
+          setSuggestions([
+            ...suggestions,
+            {
+              id: Date.now(),
+              type: 'grammar',
+              text: 'Authentication failed: Please update your API key to use the improve writing feature.'
+            }
+          ]);
+          
+          // Prompt user to update their API key
+          setTimeout(() => {
+            setShowApiKeyModal(true);
+          }, 1000);
+          
+          throw new Error('Authentication failed. Please update your API key.');
+        }
+        
+        throw new Error(response.data.error);
+      }
       
       if (response.data.improved_content) {
         // Create a backup of current content
@@ -386,19 +613,30 @@ export default function AIWritingAssistant() {
             originalContent: previousContent
           }
         ]);
+        
+        // Show success notification
+        showNotification('Content has been improved successfully!', 'success');
+      } else {
+        throw new Error('No improved content received from the server');
       }
     } catch (error) {
       console.error('Error improving writing:', error);
       
-      // Add improvement error as a suggestion
-      setSuggestions([
-        ...suggestions,
-        {
-          id: Date.now(),
-          type: 'grammar',
-          text: 'Unable to improve writing. Please try again or check your content.'
-        }
-      ]);
+      // Show error as a toast notification
+      showNotification(`Error improving writing: ${error.message || 'Unknown error'}`, 'error');
+      
+      // Only add error suggestion if not already added for API key issues
+      if (!error.message.includes('API key') && !error.message.includes('Authentication')) {
+        // Add improvement error as a suggestion
+        setSuggestions([
+          ...suggestions,
+          {
+            id: Date.now(),
+            type: 'grammar',
+            text: 'Unable to improve writing. Please try again or check your content.'
+          }
+        ]);
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -709,6 +947,34 @@ export default function AIWritingAssistant() {
     };
   }, []);
 
+  // Close API key modal when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (apiKeyModalRef.current && !apiKeyModalRef.current.contains(event.target)) {
+        setShowApiKeyModal(false);
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Close security info when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (securityInfoRef.current && !securityInfoRef.current.contains(event.target)) {
+        setShowSecurityInfo(false);
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   // Panel resizing handlers
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -792,7 +1058,7 @@ export default function AIWritingAssistant() {
   // Function to add a custom model
   const addCustomModel = async () => {
     if (!customModelId.trim() || !customModelName.trim()) {
-      alert('Both Model ID and Display Name are required');
+      showNotification('Both Model ID and Display Name are required', 'error');
       return;
     }
     
@@ -805,7 +1071,7 @@ export default function AIWritingAssistant() {
       });
       
       if (response.data.success) {
-        // Add the model to options
+        // Create the new model object
         const newModel = {
           id: customModelId,
           name: customModelName,
@@ -815,8 +1081,8 @@ export default function AIWritingAssistant() {
           custom: true
         };
         
-        // Add the new model to the model options array
-        modelOptions.push(newModel);
+        // Add the new model to the model options array using setState
+        setModelOptions(prevOptions => [...prevOptions, newModel]);
         
         // Switch to the new model
         setModel(customModelId);
@@ -831,16 +1097,65 @@ export default function AIWritingAssistant() {
         setCustomModelId('');
         setCustomModelName('');
         
-        // Success message
-        alert(`Successfully added and verified model: ${customModelName}`);
+        // Ask if user wants to save the model permanently
+        const shouldSave = window.confirm(
+          `Successfully verified model: ${customModelName}. \n\nDo you want to save this model for future sessions? \n\nClick 'OK' to save or 'Cancel' to use only for the current session.`
+        );
+        
+        if (shouldSave) {
+          // Save custom models to localStorage
+          const savedCustomModels = JSON.parse(localStorage.getItem('custom_models') || '[]');
+          savedCustomModels.push(newModel);
+          localStorage.setItem('custom_models', JSON.stringify(savedCustomModels));
+          
+          // Show confirmation with toast notification
+          showNotification(`Model "${customModelName}" saved for future sessions`, 'success');
+        } else {
+          // Show success message without saving
+          showNotification(`Model "${customModelName}" added for this session only`, 'info');
+        }
       } else {
         throw new Error(response.data.error || 'Failed to verify model');
       }
     } catch (error) {
       console.error('Error verifying model:', error);
-      alert(`Failed to verify model: ${error.message || 'Unknown error'}`);
+      showNotification(`Failed to verify model: ${error.message || 'Unknown error'}`, 'error');
     } finally {
       setIsVerifyingModel(false);
+    }
+  };
+
+  // Function to remove a custom model
+  const removeCustomModel = (modelId) => {
+    const modelToRemove = modelOptions.find(m => m.id === modelId);
+    
+    if (!modelToRemove || !modelToRemove.custom) {
+      showNotification('Only custom models can be removed', 'error');
+      return;
+    }
+    
+    const confirmRemove = window.confirm(`Are you sure you want to remove the model "${modelToRemove.name}"?`);
+    
+    if (confirmRemove) {
+      // Remove from state using setState
+      setModelOptions(prevOptions => prevOptions.filter(m => m.id !== modelId));
+      
+      // Remove from localStorage
+      const savedCustomModels = JSON.parse(localStorage.getItem('custom_models') || '[]');
+      const updatedCustomModels = savedCustomModels.filter(m => m.id !== modelId);
+      localStorage.setItem('custom_models', JSON.stringify(updatedCustomModels));
+      
+      // If the current model was removed, switch to the first available model
+      if (model === modelId) {
+        // Get the updated model options
+        const updatedOptions = modelOptions.filter(m => m.id !== modelId);
+        if (updatedOptions.length > 0) {
+          setModel(updatedOptions[0].id);
+          setChatMessages([]); // Clear chat messages when model changes
+        }
+      }
+      
+      showNotification(`Model "${modelToRemove.name}" has been removed`, 'info');
     }
   };
 
@@ -857,92 +1172,402 @@ export default function AIWritingAssistant() {
     }
   }, [rightPanelWidth, isDraggingRight]);
 
+  // Function to fetch the current API key (masked)
+  const fetchApiKeyInfo = async () => {
+    try {
+      // Check if we have a key in localStorage
+      const storedKey = localStorage.getItem('openrouter_api_key');
+      
+      if (storedKey) {
+        // If we have a stored key, use it to get the masked version
+        const response = await axios.post('/api/settings/apikey', {
+          apiKey: storedKey
+        });
+        
+        setMaskedApiKey(response.data.maskedKey);
+        setApiKeySet(true);
+      } else {
+        // Otherwise, just check if the server has an API key set
+        const response = await axios.get('/api/settings/apikey');
+        setMaskedApiKey(response.data.maskedKey);
+        setApiKeySet(response.data.isSet);
+      }
+    } catch (error) {
+      console.error('Error fetching API key info:', error);
+      setApiKeyError('Failed to load API key information');
+    }
+  };
+  
+  // Function to update the API key
+  const updateApiKey = async () => {
+    if (!apiKeyInput.trim()) {
+      setApiKeyError('API key cannot be empty');
+      return;
+    }
+    
+    setIsUpdatingApiKey(true);
+    setApiKeyError('');
+    
+    try {
+      const response = await axios.post('/api/settings/apikey', {
+        apiKey: apiKeyInput
+      });
+      
+      setMaskedApiKey(response.data.maskedKey);
+      setApiKeySet(true);
+      
+      // If remember key is checked, store in localStorage
+      if (rememberKey) {
+        localStorage.setItem('openrouter_api_key', apiKeyInput);
+      } else {
+        // Otherwise make sure it's removed from localStorage
+        localStorage.removeItem('openrouter_api_key');
+      }
+      
+      setApiKeyInput(''); // Clear input after successful update
+      setShowApiKey(false); // Hide the input
+      
+      // Close the modal
+      setShowApiKeyModal(false);
+      
+      // Show success message with toast instead of alert
+      showNotification('API key updated successfully', 'success');
+      
+    } catch (error) {
+      console.error('Error updating API key:', error);
+      setApiKeyError(error.response?.data?.error || 'Failed to update API key');
+      showNotification('Failed to update API key: ' + (error.response?.data?.error || 'Unknown error'), 'error');
+    } finally {
+      setIsUpdatingApiKey(false);
+    }
+  };
+
+  // Function to test the API key before saving
+  const testApiKey = async () => {
+    if (!apiKeyInput.trim()) {
+      setApiKeyError('API key cannot be empty');
+      return;
+    }
+    
+    if (!apiKeyInput.startsWith('sk-or-')) {
+      setApiKeyError('Invalid API key format. OpenRouter API keys should start with sk-or-');
+      return;
+    }
+    
+    setIsTestingApiKey(true);
+    setApiKeyError('');
+    
+    try {
+      console.log('Testing OpenRouter API key...');
+      
+      // Use the verify-model endpoint since we're already using it for other purposes
+      const response = await axios.post('/api/verify-model', {
+        apiKey: apiKeyInput,
+        model: 'nvidia/llama-3.1-nemotron-nano-8b-v1:free' // Use free model for testing
+      });
+      
+      if (response.data.success) {
+        console.log('API key validation successful');
+        setApiKeyTestSuccess(true);
+        showNotification('API key is valid!', 'success');
+        setTimeout(() => setApiKeyTestSuccess(false), 3000);
+      } else {
+        console.error('API key validation failed:', response.data.error || 'Unknown error');
+        setApiKeyError('API key validation failed: ' + (response.data.error || 'Unknown error'));
+        showNotification('API key validation failed', 'error');
+      }
+    } catch (error) {
+      console.error('Error testing API key:', error);
+      
+      // Check for specific error types
+      if (error.response && error.response.status === 401) {
+        setApiKeyError('Authentication failed: This API key is invalid or has expired. Please generate a new key at openrouter.ai/keys');
+        showNotification('Invalid API key. Please get a new one from OpenRouter.', 'error');
+      } else if (error.response && error.response.status === 404) {
+        setApiKeyError('API endpoint not found. Please check if the OpenRouter API URL has changed.');
+        showNotification('API connection issue. Try again later.', 'error');
+      } else {
+        setApiKeyError('Failed to validate API key: ' + (error.response?.data?.error || error.message));
+        showNotification('Failed to validate API key', 'error');
+      }
+    } finally {
+      setIsTestingApiKey(false);
+    }
+  };
+
+  // Fetch the API key info when component mounts
+  useEffect(() => {
+    fetchApiKeyInfo();
+  }, []);
+
+  // Helper function to show toast notifications
+  const showNotification = (message, type = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  };
+
+  // Helper function to copy to clipboard
+  const copyToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+    }
+  };
+
+  // Toggle dark mode and save preference
+  const toggleDarkMode = () => {
+    const newMode = !isDarkMode;
+    setIsDarkMode(newMode);
+    localStorage.setItem('dark_mode', newMode.toString());
+    showNotification(`${newMode ? 'Dark' : 'Light'} mode activated`, 'info');
+  };
+
+  // Helper function to generate demo suggestions when API is not working
+  const generateDemoSuggestions = () => {
+    return [
+      { id: 1, type: 'improvement', text: 'This is a demo suggestion since the OpenRouter API is not connected. Please update your API key to get real AI-powered suggestions.' },
+      { id: 2, type: 'alternative', text: 'Demo alternative: "Implementing this system could significantly improve productivity and streamline operations."' },
+      { id: 3, type: 'grammar', text: 'Demo grammar suggestion: Check punctuation and capitalization in your document.' }
+    ];
+  };
+
+  // Function to display a helpful prompt to fix API issues
+  const renderApiKeyPrompt = () => {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className={`mb-4 p-4 rounded-lg border ${
+          isDarkMode 
+            ? 'bg-yellow-900/30 border-yellow-800 text-yellow-200' 
+            : 'bg-yellow-50 border-yellow-200 text-yellow-800'
+        }`}
+      >
+        <div className="flex items-start">
+          <AlertTriangle className="mr-3 flex-shrink-0 mt-0.5" size={18} />
+          <div>
+            <p className="font-medium mb-1">API Key Required</p>
+            <p className="text-sm mb-2">
+              The OpenRouter API key is invalid or missing. To use AI features, please:
+            </p>
+            <ol className="text-sm list-decimal ml-5 mb-2 space-y-1">
+              <li>Get a free API key from <a 
+                href="https://openrouter.ai/keys" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className={`underline font-medium ${
+                  isDarkMode ? 'text-yellow-300 hover:text-yellow-200' : 'text-yellow-700 hover:text-yellow-900'
+                }`}
+              >openrouter.ai/keys</a></li>
+              <li>Click the Settings button in the top bar</li>
+              <li>Select "Update" next to API Key</li>
+              <li>Enter and save your new API key</li>
+            </ol>
+          </div>
+        </div>
+        <div className="mt-2 flex justify-end">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowApiKeyModal(true)}
+            className={`px-3 py-1.5 rounded text-sm font-medium ${
+              isDarkMode 
+                ? 'bg-yellow-700 hover:bg-yellow-600 text-white' 
+                : 'bg-yellow-500 hover:bg-yellow-600 text-white'
+            }`}
+          >
+            <Key size={14} className="inline mr-1" />
+            Update API Key
+          </motion.button>
+        </div>
+      </motion.div>
+    );
+  };
+
   return (
-    <div className={`flex h-screen bg-gray-100 text-gray-900 ${(isDraggingLeft || isDraggingRight) ? 'no-select' : ''}`}>
+    <div className={`flex h-screen ${isDarkMode ? 'dark bg-gray-900 text-gray-100' : 'bg-gray-100 text-gray-900'} ${(isDraggingLeft || isDraggingRight) ? 'no-select' : ''}`}>
+      {/* Warning banner when no API key is set */}
+      <AnimatePresence>
+      {!apiKeySet && (
+          <motion.div 
+            initial={{ y: -50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -50, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+            className={`fixed top-0 left-0 right-0 ${isDarkMode ? 'bg-yellow-800 text-yellow-100' : 'bg-yellow-100 text-yellow-800'} px-4 py-2 text-sm flex items-center justify-center z-50`}
+          >
+          <AlertTriangle size={16} className="mr-2" />
+          No OpenRouter API key set. Some features may not work properly.
+          <button
+            onClick={() => setShowApiKeyModal(true)}
+            className={`ml-3 underline font-medium ${isDarkMode ? 'text-yellow-100' : 'text-yellow-800'}`}
+          >
+            Set API Key
+          </button>
+          </motion.div>
+      )}
+      </AnimatePresence>
+      
       {/* Sidebar with dynamic width */}
-      <div 
-        className="bg-white border-r border-gray-200 transition-all relative flex-shrink-0 resizable-panel"
+      <motion.div 
+        className={`${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-r transition-all relative flex-shrink-0 resizable-panel`}
         style={{ width: sidebarOpen ? `${leftPanelWidth}px` : '64px' }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        layout
       >
         <div className="flex flex-col h-full">
           {/* App Logo & Title */}
-          <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+          <div className={`p-4 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'} border-b flex items-center justify-between`}>
             <div className="flex items-center">
-              <PenTool className="text-blue-600" />
-              {sidebarOpen && <span className="ml-2 font-bold">AI Writer</span>}
+              <motion.div
+                whileHover={{ rotate: 360 }}
+                transition={{ duration: 0.5 }}
+              >
+              <PenTool className={`${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+              </motion.div>
+              {sidebarOpen && <motion.span
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                className="ml-2 font-bold"
+              >AI Writer</motion.span>}
             </div>
-            <button 
+            <motion.button 
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-gray-500 hover:text-gray-700"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
+              className={`${isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`}
             >
               <ChevronDown className={`transform ${sidebarOpen ? 'rotate-180' : ''}`} size={16} />
-            </button>
+            </motion.button>
           </div>
 
           {/* Sidebar Tabs */}
-          <div className="flex border-b border-gray-200">
-            <button 
-              className={`flex-1 p-3 text-xs ${activeSidebarTab === 'format' ? 'bg-gray-100' : ''}`}
+          <div className={`flex ${isDarkMode ? 'border-gray-700' : 'border-gray-200'} border-b`}>
+            <motion.button 
+              whileHover={{ backgroundColor: isDarkMode ? 'rgba(75, 85, 99, 0.3)' : 'rgba(243, 244, 246, 0.7)' }}
+              whileTap={{ scale: 0.97 }}
+              className={`flex-1 p-3 text-xs ${
+                activeSidebarTab === 'format' 
+                  ? isDarkMode ? 'bg-gray-700' : 'bg-gray-100' 
+                  : ''
+              }`}
               onClick={() => setActiveSidebarTab('format')}
             >
               {sidebarOpen ? 'Format & Style' : <Settings size={16} className="mx-auto" />}
-            </button>
-            <button 
-              className={`flex-1 p-3 text-xs ${activeSidebarTab === 'history' ? 'bg-gray-100' : ''}`}
+            </motion.button>
+            <motion.button 
+              whileHover={{ backgroundColor: isDarkMode ? 'rgba(75, 85, 99, 0.3)' : 'rgba(243, 244, 246, 0.7)' }}
+              whileTap={{ scale: 0.97 }}
+              className={`flex-1 p-3 text-xs ${
+                activeSidebarTab === 'history' 
+                  ? isDarkMode ? 'bg-gray-700' : 'bg-gray-100' 
+                  : ''
+              }`}
               onClick={() => setActiveSidebarTab('history')}
             >
               {sidebarOpen ? 'History' : <History size={16} className="mx-auto" />}
-            </button>
+            </motion.button>
           </div>
 
           {/* Tab Content */}
           <div className="flex-1 overflow-y-auto">
+            <AnimatePresence mode="wait">
             {activeSidebarTab === 'format' && sidebarOpen && (
-              <div className="p-4">
+                <motion.div 
+                  key="format-tab"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="p-4"
+                >
                 {/* Document Type */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium mb-2">Document Type</label>
-                  <select 
+                  <motion.div 
+                    className="mb-4"
+                    variants={staggerContainer}
+                    initial="hidden"
+                    animate="visible"
+                  >
+                    <motion.label variants={fadeIn} className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : ''}`}>Document Type</motion.label>
+                    <motion.select 
+                      variants={fadeIn}
                     value={documentType}
                     onChange={(e) => setDocumentType(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                    className={`w-full p-2 border rounded-md text-sm ${
+                      isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white' 
+                        : 'border-gray-300'
+                    }`}
                   >
                     {documentTypes.map(type => (
                       <option key={type.id} value={type.id}>{type.name}</option>
                     ))}
-                  </select>
-                </div>
+                    </motion.select>
+                  </motion.div>
 
                 {/* Tone */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium mb-2">Tone</label>
-                  <select 
+                  <motion.div 
+                    className="mb-4"
+                    variants={staggerContainer}
+                    initial="hidden"
+                    animate="visible"
+                  >
+                    <motion.label variants={fadeIn} className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : ''}`}>Tone</motion.label>
+                    <motion.select 
+                      variants={fadeIn}
                     value={tone}
                     onChange={(e) => setTone(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                    className={`w-full p-2 border rounded-md text-sm ${
+                      isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white' 
+                        : 'border-gray-300'
+                    }`}
                   >
                     {toneOptions.map(t => (
                       <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
                     ))}
-                  </select>
-                </div>
+                    </motion.select>
+                  </motion.div>
 
                 {/* Model Selection */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium mb-2">
+                  <motion.div 
+                    className="mb-4"
+                    variants={staggerContainer}
+                    initial="hidden"
+                    animate="visible"
+                  >
+                    <motion.label variants={fadeIn} className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : ''}`}>
                     AI Model
-                    <button
+                      <motion.button
+                        whileHover={{ scale: 1.2 }}
+                        whileTap={{ scale: 0.9 }}
                       onClick={() => setShowModelInfo(!showModelInfo)}
-                      className="ml-1 text-gray-400 hover:text-gray-600"
+                      className={`ml-1 ${isDarkMode ? 'text-gray-500 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}
                       aria-label="Model information"
                     >
                       <Info size={14} />
-                    </button>
+                      </motion.button>
                     
+                      <AnimatePresence>
                     {showModelInfo && (
-                      <div 
+                          <motion.div 
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 10 }}
+                            transition={{ type: "spring", damping: 20 }}
                         ref={modelInfoRef}
-                        className="absolute mt-1 w-64 bg-white rounded-md shadow-lg z-20 p-3 border border-gray-200 text-xs text-gray-700"
+                        className={`absolute mt-1 w-64 rounded-md shadow-lg z-20 p-3 border text-xs ${
+                          isDarkMode 
+                            ? 'bg-gray-800 border-gray-700 text-gray-300' 
+                            : 'bg-white border-gray-200 text-gray-700'
+                        }`}
                       >
                         <h4 className="font-semibold mb-1">About AI Models</h4>
                         <p className="mb-2">Different AI models have various specialties and capabilities:</p>
@@ -953,10 +1578,11 @@ export default function AIWritingAssistant() {
                           <li><span className="font-medium">Custom models</span> are your own specified models</li>
                         </ul>
                         <p>Models marked with ✓ are recommended for your current document type.</p>
-                      </div>
+                          </motion.div>
                     )}
-                  </label>
-                  <div className="mb-2">
+                      </AnimatePresence>
+                    </motion.label>
+                    <motion.div variants={fadeIn} className="mb-2">
                     <select 
                       value={model}
                       onChange={(e) => {
@@ -964,333 +1590,543 @@ export default function AIWritingAssistant() {
                         // Clear chat messages when model changes
                         setChatMessages([]);
                       }}
-                      className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                      className={`w-full p-2 border rounded-md text-sm ${
+                        isDarkMode 
+                          ? 'bg-gray-700 border-gray-600 text-white' 
+                          : 'border-gray-300'
+                      }`}
                     >
-                      {modelOptions.map(m => (
+                      {/* Default Models Group */}
+                      <optgroup label="Default Models">
+                        {modelOptions.filter(m => !m.custom).map(m => (
                         <option key={m.id} value={m.id}>
                           {m.name} {m.strengths.includes(documentType) ? "✓" : ""}
                           {m.free ? " (free)" : ""}
-                          {m.custom ? " (custom)" : ""}
                         </option>
                       ))}
+                      </optgroup>
+                      
+                      {/* Custom Models Group - only show if there are custom models */}
+                      {modelOptions.some(m => m.custom) && (
+                        <optgroup label="Custom Models">
+                          {modelOptions.filter(m => m.custom).map(m => (
+                            <option key={m.id} value={m.id}>
+                              {m.name} (custom)
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
                     </select>
-                  </div>
+                    </motion.div>
                   
-                  <div className="mt-1 text-xs text-gray-500">
+                    <motion.div variants={fadeIn} className={`mt-1 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                     Currently using: <span className="font-semibold">{getModelDisplayName(model)}</span>
                     {isRecommendedModel(model) && (
-                      <span className="ml-1 text-green-600">(Recommended for {documentTypes.find(t => t.id === documentType)?.name})</span>
+                      <span className={`ml-1 ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>(Recommended for {documentTypes.find(t => t.id === documentType)?.name})</span>
                     )}
-                  </div>
-                  <div className="mt-1 text-xs text-gray-500">
+                    </motion.div>
+                    <motion.div variants={fadeIn} className={`mt-1 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                     {modelOptions.find(m => m.id === model)?.description}
-                  </div>
-                </div>
-
-                {/* Export Options */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium mb-2">Export As</label>
-                  <div className="flex space-x-2">
-                    <button 
-                      onClick={() => handleExport('markdown')}
-                      className="flex-1 p-2 bg-gray-200 rounded-md text-xs hover:bg-gray-300"
+                    </motion.div>
+                  
+                  {/* Show delete button for custom models */}
+                    <AnimatePresence>
+                  {modelOptions.find(m => m.id === model)?.custom && (
+                        <motion.button
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 5 }}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                      onClick={() => removeCustomModel(model)}
+                      className={`mt-2 px-2 py-1 rounded text-xs flex items-center ${
+                        isDarkMode
+                          ? 'bg-red-900/40 text-red-300 hover:bg-red-900/60'
+                          : 'bg-red-100 text-red-700 hover:bg-red-200'
+                      }`}
                     >
-                      Markdown
-                    </button>
-                    <button 
-                      onClick={() => handleExport('pdf')}
-                      className="flex-1 p-2 bg-gray-200 rounded-md text-xs hover:bg-gray-300"
+                      <Trash2 size={12} className="mr-1" />
+                      Remove Custom Model
+                        </motion.button>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                  
+                  {/* Temperature Slider */}
+                  <motion.div 
+                    className="mb-4"
+                    variants={staggerContainer}
+                    initial="hidden"
+                    animate="visible"
+                  >
+                    <motion.div variants={fadeIn} className="flex items-center justify-between mb-2">
+                      <label className={`block text-sm font-medium ${isDarkMode ? 'text-gray-300' : ''}`}>
+                        Temperature
+                        <motion.button
+                          whileHover={{ scale: 1.2 }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => setShowTemperatureInfo(!showTemperatureInfo)}
+                          className={`ml-1 ${isDarkMode ? 'text-gray-500 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'}`}
+                          aria-label="Temperature information"
+                        >
+                          <Info size={14} />
+                        </motion.button>
+                      </label>
+                      <span className={`text-xs font-mono ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{temperature.toFixed(1)}</span>
+                    </motion.div>
+                    
+                    <AnimatePresence>
+                      {showTemperatureInfo && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 10 }}
+                          transition={{ type: "spring", damping: 20 }}
+                          ref={temperatureInfoRef}
+                          className={`absolute mt-1 w-64 rounded-md shadow-lg z-20 p-3 border text-xs ${
+                        isDarkMode 
+                              ? 'bg-gray-800 border-gray-700 text-gray-300' 
+                              : 'bg-white border-gray-200 text-gray-700'
+                          }`}
+                        >
+                          <h4 className="font-semibold mb-1">About Temperature</h4>
+                          <p className="mb-2">Temperature controls the randomness of the AI's responses:</p>
+                          <ul className="mb-2 space-y-1">
+                            <li><span className="font-bold">Low (0.1-0.3):</span> More predictable, factual, and conservative</li>
+                            <li><span className="font-bold">Medium (0.4-0.7):</span> Balanced creativity and consistency</li>
+                            <li><span className="font-bold">High (0.8-1.0):</span> More creative, varied, and sometimes unpredictable</li>
+                          </ul>
+                          <p>Adjust based on your needs - lower for professional/technical writing, higher for creative content.</p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                    
+                    <motion.input 
+                      variants={fadeIn}
+                      type="range" 
+                      min="0.1" 
+                      max="1.0" 
+                      step="0.1" 
+                      value={temperature}
+                      onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                      className={`w-full accent-blue-500 ${isDarkMode ? 'bg-gray-700' : ''}`}
+                    />
+                    
+                    <motion.div 
+                      variants={fadeIn}
+                      className="flex justify-between text-xs mt-1"
                     >
-                      PDF
-                    </button>
-                    <button 
-                      onClick={() => handleExport('docx')}
-                      className="flex-1 p-2 bg-gray-200 rounded-md text-xs hover:bg-gray-300"
+                      <span className={isDarkMode ? 'text-blue-400' : 'text-blue-600'}>Precise</span>
+                      <span className={isDarkMode ? 'text-green-400' : 'text-green-600'}>Balanced</span>
+                      <span className={isDarkMode ? 'text-purple-400' : 'text-purple-600'}>Creative</span>
+                    </motion.div>
+                  </motion.div>
+                  
+                  {/* Custom Model Button */}
+                  <motion.div 
+                    variants={fadeIn}
+                    className="mb-2 flex flex-col"
+                  >
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setShowCustomModelForm(!showCustomModelForm)}
+                      className={`flex items-center justify-center px-3 py-2 border rounded-md text-sm ${
+                        isDarkMode 
+                          ? 'bg-gray-700 border-gray-600 hover:bg-gray-600 text-gray-200' 
+                          : 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700'
+                      }`}
                     >
-                      DOCX
-                    </button>
-                  </div>
-                </div>
-              </div>
+                      <Plus size={16} className="mr-1" />
+                      Add Custom Model
+                    </motion.button>
+                  </motion.div>
+                </motion.div>
             )}
 
             {activeSidebarTab === 'history' && sidebarOpen && (
-              <div className="p-4">
-                <h3 className="font-medium text-sm mb-2">Document History</h3>
-                <div className="space-y-2">
-                  {history.map(item => (
-                    <div key={item.id} className="p-2 bg-gray-50 rounded-md text-xs">
-                      <div className="flex justify-between">
-                        <span>{item.action}</span>
-                        <span className="text-gray-500">v{item.version}</span>
-                      </div>
-                      <div className="text-gray-500 mt-1">{item.timestamp}</div>
-                    </div>
-                  ))}
-                  {history.length === 0 && (
-                    <div className="text-gray-500 text-xs p-2">No history yet</div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Saved Documents (Always visible if sidebar expanded) */}
-            {sidebarOpen && (
-              <div className="p-4 border-t border-gray-200">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="font-medium text-sm">Saved Documents</h3>
-                  <button
-                    onClick={createNewDocument}
-                    className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-                    title="Create New Document"
-                  >
-                    + New
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {savedDocuments.map(doc => (
-                    <div 
-                      key={doc.id} 
-                      className="p-2 bg-gray-50 rounded-md text-xs hover:bg-gray-100 cursor-pointer"
-                      onClick={() => loadDocument(doc.id)}
+                <motion.div 
+                  key="history-tab"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="p-4"
+                >
+                  <h3 className={`font-medium text-sm mb-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Document History</h3>
+                  
+                  {history.length === 0 ? (
+                    <motion.p 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className={`text-xs italic ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}
                     >
-                      <div className="flex justify-between items-center">
-                        <div 
-                          className="font-medium truncate flex-1"
+                      No history yet. Start generating content!
+                    </motion.p>
+                  ) : (
+                    <motion.ul 
+                      variants={staggerContainer}
+                      initial="hidden"
+                      animate="visible"
+                      className="space-y-2"
+                    >
+                      {history.map((item) => (
+                        <motion.li 
+                          key={item.id}
+                          variants={slideInFromLeft}
+                          className={`text-xs p-2 rounded ${
+                        isDarkMode 
+                          ? 'bg-gray-700 hover:bg-gray-600' 
+                          : 'bg-gray-50 hover:bg-gray-100'
+                      }`}
                         >
-                          {doc.title}
+                          <div className="flex justify-between items-start">
+                            <span className="font-medium">{item.action}</span>
+                            <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{item.timestamp}</span>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteDocument(doc.id);
-                          }}
-                          className="ml-2 p-1 text-gray-400 hover:text-red-500 rounded-full hover:bg-gray-200"
-                          title="Delete document"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                          <div className={`mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Version: {item.version}
                       </div>
-                      <div className="text-gray-500 mt-1 flex justify-between">
-                        <span>{doc.date}</span>
-                        {documentTypes.find(t => t.id === doc.type)?.icon}
-                      </div>
-                    </div>
-                  ))}
-                  {savedDocuments.length === 0 && (
-                    <div className="text-gray-500 text-xs p-2">No saved documents yet</div>
+                        </motion.li>
+                      ))}
+                    </motion.ul>
                   )}
-                </div>
-              </div>
-            )}
-          </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
         </div>
         
-        {/* Left panel resizer */}
-        {sidebarOpen && (
+          {/* Resizer for left sidebar */}
           <div
             ref={leftResizeRef}
-            className={`resize-handle right-0 ${isDraggingLeft ? 'active' : ''}`}
+            className={`absolute top-0 right-0 w-1 h-full cursor-col-resize ${isDarkMode ? 'bg-gray-600 hover:bg-blue-600' : 'bg-gray-200 hover:bg-blue-400'}`}
             onMouseDown={handleLeftResizerMouseDown}
           />
-        )}
       </div>
+      </motion.div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <motion.div 
+        className="flex-1 flex flex-col overflow-hidden"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2 }}
+      >
         {/* Top Bar */}
-        <div className="bg-white p-4 border-b border-gray-200 flex justify-between items-center">
+        <motion.div 
+          className={`p-4 border-b flex justify-between items-center ${
+          isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+          }`}
+          initial={{ y: -20 }}
+          animate={{ y: 0 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        >
           <div className="flex items-center">
-            <input
+            <motion.input
+              whileFocus={{ scale: 1.02 }}
               type="text"
               value={documentTitle}
               onChange={(e) => setDocumentTitle(e.target.value)}
-              className="font-medium bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-blue-500 px-2 py-1 rounded"
+              className={`font-medium bg-transparent border-none focus:outline-none focus:ring-1 px-2 py-1 rounded ${
+                isDarkMode 
+                  ? 'text-gray-100 focus:ring-blue-400' 
+                  : 'focus:ring-blue-500'
+              }`}
             />
-            <span className="mx-2 text-gray-400">|</span>
-            <div className="flex items-center text-sm text-gray-500">
+            <span className={`mx-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>|</span>
+            <div className={`flex items-center text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
               {documentTypes.find(t => t.id === documentType)?.icon}
               <span className="ml-1">{documentTypes.find(t => t.id === documentType)?.name}</span>
             </div>
           </div>
           <div className="flex space-x-2">
-            <button 
-              className="p-2 hover:bg-gray-100 rounded-md" 
+            <motion.button 
+              whileHover={{ scale: 1.1, backgroundColor: isDarkMode ? 'rgba(55, 65, 81, 0.7)' : 'rgba(243, 244, 246, 0.7)' }}
+              whileTap={{ scale: 0.95 }}
+              className={`p-2 rounded-md ${
+                isDarkMode 
+                  ? 'hover:bg-gray-700 text-gray-300' 
+                  : 'hover:bg-gray-100 text-gray-700'
+              }`}
               title="New Document"
               onClick={createNewDocument}
             >
-              <FileText size={18} className="text-gray-700" />
-            </button>
-            <button 
-              className="p-2 hover:bg-gray-100 rounded-md" 
+              <FileText size={18} />
+            </motion.button>
+            <motion.button 
+              whileHover={{ scale: 1.1, backgroundColor: isDarkMode ? 'rgba(55, 65, 81, 0.7)' : 'rgba(243, 244, 246, 0.7)' }}
+              whileTap={{ scale: 0.95 }}
+              className={`p-2 rounded-md ${
+                isDarkMode 
+                  ? 'hover:bg-gray-700 text-gray-300' 
+                  : 'hover:bg-gray-100 text-gray-700'
+              }`}
               title="Save"
               onClick={saveDocument}
             >
-              <Save size={18} className="text-gray-700" />
-            </button>
+              <Save size={18} />
+            </motion.button>
             <div className="relative">
-              <button 
-                className="p-2 hover:bg-gray-100 rounded-md" 
+              <motion.button 
+                whileHover={{ scale: 1.1, backgroundColor: isDarkMode ? 'rgba(55, 65, 81, 0.7)' : 'rgba(243, 244, 246, 0.7)' }}
+                whileTap={{ scale: 0.95 }}
+                className={`p-2 rounded-md ${
+                  isDarkMode 
+                    ? 'hover:bg-gray-700 text-gray-300' 
+                    : 'hover:bg-gray-100 text-gray-700'
+                }`}
                 title="Export"
                 onClick={() => setShowExportMenu(!showExportMenu)}
               >
-                <Download size={18} className="text-gray-700" />
-              </button>
+                <Download size={18} />
+              </motion.button>
               
+              <AnimatePresence>
               {showExportMenu && (
-                <div 
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
                   ref={exportMenuRef}
-                  className="absolute right-0 mt-1 w-36 bg-white rounded-md shadow-lg z-10 py-1 border border-gray-200"
+                  className={`absolute right-0 mt-1 w-36 rounded-md shadow-lg z-10 py-1 border ${
+                    isDarkMode 
+                      ? 'bg-gray-800 border-gray-700' 
+                      : 'bg-white border-gray-200'
+                  }`}
                 >
-                  <button 
+                    <motion.button 
+                      variants={fadeIn}
+                      whileHover={{ backgroundColor: isDarkMode ? 'rgba(55, 65, 81, 0.5)' : 'rgba(243, 244, 246, 0.5)' }}
                     onClick={() => {
                       handleExport('markdown');
                       setShowExportMenu(false);
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    className={`w-full text-left px-4 py-2 text-sm ${
+                      isDarkMode 
+                        ? 'text-gray-300 hover:bg-gray-700' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
                   >
                     Markdown (.md)
-                  </button>
-                  <button 
+                    </motion.button>
+                    <motion.button 
+                      variants={fadeIn}
+                      whileHover={{ backgroundColor: isDarkMode ? 'rgba(55, 65, 81, 0.5)' : 'rgba(243, 244, 246, 0.5)' }}
                     onClick={() => {
                       handleExport('pdf');
                       setShowExportMenu(false);
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    className={`w-full text-left px-4 py-2 text-sm ${
+                      isDarkMode 
+                        ? 'text-gray-300 hover:bg-gray-700' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
                   >
                     PDF (.pdf)
-                  </button>
-                  <button 
+                    </motion.button>
+                    <motion.button 
+                      variants={fadeIn}
+                      whileHover={{ backgroundColor: isDarkMode ? 'rgba(55, 65, 81, 0.5)' : 'rgba(243, 244, 246, 0.5)' }}
                     onClick={() => {
                       handleExport('docx');
                       setShowExportMenu(false);
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    className={`w-full text-left px-4 py-2 text-sm ${
+                      isDarkMode 
+                        ? 'text-gray-300 hover:bg-gray-700' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
                   >
                     Word (.docx)
-                  </button>
-                </div>
+                    </motion.button>
+                  </motion.div>
               )}
+              </AnimatePresence>
             </div>
-            <button 
-              className="p-2 hover:bg-gray-100 rounded-md relative" 
+            <div className="relative">
+              <motion.button 
+                whileHover={{ scale: 1.1, backgroundColor: isDarkMode ? 'rgba(55, 65, 81, 0.7)' : 'rgba(243, 244, 246, 0.7)' }}
+                whileTap={{ scale: 0.95 }}
+              className={`p-2 rounded-md relative ${
+                isDarkMode 
+                  ? 'hover:bg-gray-700 text-gray-300' 
+                  : 'hover:bg-gray-100 text-gray-700'
+              }`}
               title="Settings"
               onClick={() => setShowSettingsMenu(!showSettingsMenu)}
             >
-              <Settings size={18} className="text-gray-700" />
+              <Settings size={18} />
+              </motion.button>
               
+              <AnimatePresence>
               {showSettingsMenu && (
-                <div 
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
                   ref={settingsMenuRef}
-                  className="absolute right-0 mt-2 w-72 bg-white rounded-md shadow-lg overflow-hidden z-20 border border-gray-200"
+                  className={`absolute right-0 mt-2 w-72 rounded-md shadow-lg overflow-hidden z-20 border ${
+                    isDarkMode 
+                      ? 'bg-gray-800 border-gray-700' 
+                      : 'bg-white border-gray-200'
+                  }`}
                   style={{ top: '100%' }}
                 >
-                  <div className="p-4">
-                    <h3 className="font-medium text-sm mb-4">Settings</h3>
+                    <div className={`px-4 py-3 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                      <h3 className="text-sm font-medium">Settings</h3>
+                    </div>
                     
-                    {/* Temperature Control */}
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium mb-2">
-                        Temperature: <span className="font-semibold">{temperature.toFixed(1)}</span>
-                        <button
-                          onClick={() => setShowTemperatureInfo(!showTemperatureInfo)}
-                          className="ml-1 text-gray-400 hover:text-gray-600"
-                          aria-label="Temperature information"
+                    <div className="p-4">
+                      {/* Theme Toggle */}
+                      <div className="flex items-center justify-between mb-4">
+                        <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Dark Mode</span>
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={toggleDarkMode}
+                          className={`p-1.5 rounded-full ${
+                              isDarkMode 
+                              ? 'bg-blue-500 text-white' 
+                              : 'bg-gray-300 text-gray-800'
+                          }`}
                         >
-                          <Info size={14} />
-                        </button>
-                        
-                        {showTemperatureInfo && (
-                          <div 
-                            ref={temperatureInfoRef}
-                            className="absolute mt-1 w-64 bg-white rounded-md shadow-lg z-30 p-3 border border-gray-200 text-xs text-gray-700"
-                          >
-                            <h4 className="font-semibold mb-1">Understanding Temperature</h4>
-                            <p className="mb-2">Temperature controls the randomness of the AI's responses:</p>
-                            <div className="space-y-2 mb-2">
-                              <div>
-                                <div className="flex justify-between">
-                                  <span className="font-medium">Low (0.1-0.4)</span>
-                                  <span className="text-blue-600">More precise</span>
-                                </div>
-                                <p>Consistent, predictable, deterministic responses. Best for factual information.</p>
-                              </div>
-                              <div>
-                                <div className="flex justify-between">
-                                  <span className="font-medium">Medium (0.5-0.7)</span>
-                                  <span className="text-purple-600">Balanced</span>
-                                </div>
-                                <p>Good balance between creativity and focus. Works well for most tasks.</p>
-                              </div>
-                              <div>
-                                <div className="flex justify-between">
-                                  <span className="font-medium">High (0.8-1.0)</span>
-                                  <span className="text-pink-600">More creative</span>
-                                </div>
-                                <p>More varied, diverse, and sometimes unexpected outputs. Ideal for brainstorming.</p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        
-                        <span className="ml-2 text-xs text-gray-500">
-                          {temperature < 0.4 ? '(More precise)' : 
-                           temperature > 0.8 ? '(More creative)' : 
-                           '(Balanced)'}
-                        </span>
-                      </label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.1"
-                        value={temperature}
-                        onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                      />
-                      <div className="flex justify-between text-xs text-gray-500 mt-1">
-                        <span>Precise</span>
-                        <span>Creative</span>
-                      </div>
+                          {isDarkMode ? <Moon size={16} /> : <Sun size={16} />}
+                        </motion.button>
                     </div>
                     
-                    {/* Custom Model Feature */}
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium mb-2">Custom Model</label>
-                      <button
-                        onClick={() => {
-                          setShowCustomModelForm(!showCustomModelForm);
-                          setShowSettingsMenu(false);
-                        }}
-                        className="w-full p-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm flex items-center justify-center"
-                      >
-                        <Plus size={16} className="mr-1" />
-                        Add Custom Model
-                      </button>
+                      {/* Token Usage */}
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Token Usage</span>
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }} 
+                            onClick={() => setShowUsageStats(!showUsageStats)}
+                            className={`text-xs px-2 py-1 rounded ${
+                              isDarkMode 
+                                ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' 
+                                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                            }`}
+                          >
+                            {showUsageStats ? 'Hide' : 'Show'}
+                          </motion.button>
                     </div>
+                    
+                        <AnimatePresence>
+                          {showUsageStats && (
+                            <motion.div 
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.2 }}
+                              ref={usageStatsRef}
+                              className={`text-xs p-2 rounded mb-2 ${
+                              isDarkMode 
+                                  ? 'bg-gray-700 text-gray-300' 
+                                  : 'bg-gray-100 text-gray-700'
+                              }`}
+                            >
+                              <div className="flex justify-between mb-1">
+                                <span>Total usage</span>
+                                <span>{tokenUsage.total.toLocaleString()} tokens</span>
+                                </div>
+                                <div className="flex justify-between">
+                                <span>Last request</span>
+                                <span>{tokenUsage.lastRequest.toLocaleString()} tokens</span>
+                                </div>
+                              {/* Estimated cost based on model */}
+                              <div className="mt-2 pt-2 border-t border-gray-600">
+                                <div className="flex justify-between">
+                                  <span>Est. cost (current model)</span>
+                                  <span>${estimateCost(tokenUsage.total, model).toFixed(4)}</span>
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                    </div>
+                    
+                      {/* API Key Management */}
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between">
+                          <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>API Key</span>
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }} 
+                            onClick={() => setShowApiKeyModal(true)}
+                            className={`text-xs px-2 py-1 rounded ${
+                              isDarkMode 
+                                ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' 
+                                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                            }`}
+                          >
+                            {apiKeySet ? 'Update' : 'Set Key'}
+                          </motion.button>
+                    </div>
+                          
+                        <div className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          {apiKeySet 
+                            ? <div className="flex items-center">
+                                <Shield size={12} className={`mr-1 ${isDarkMode ? 'text-green-400' : 'text-green-600'}`} />
+                                <span>API key is set</span>
+                                  </div>
+                            : <div className="flex items-center">
+                                <AlertTriangle size={12} className={`mr-1 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}`} />
+                                <span>No API key configured</span>
+                                  </div>
+                          }
+                                </div>
+                              </div>
+                          </div>
+                  </motion.div>
+                      )}
+              </AnimatePresence>
+                    </div>
+            
+            {/* Dark mode toggle in top bar for quick access */}
+            <motion.button 
+              whileHover={{ scale: 1.1, rotate: 180 }}
+              whileTap={{ scale: 0.9 }}
+              transition={{ rotate: { duration: 0.5 } }}
+              className={`p-2 rounded-md ${
+                isDarkMode 
+                  ? 'hover:bg-gray-700 text-gray-300' 
+                  : 'hover:bg-gray-100 text-gray-700'
+              }`}
+              title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              onClick={toggleDarkMode}
+            >
+              {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+            </motion.button>
                   </div>
-                </div>
-              )}
-            </button>
-          </div>
-        </div>
+        </motion.div>
 
         {/* Content Area */}
         <div className="flex-1 flex overflow-hidden">
           {/* Main Editor Panel */}
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Tabs for Editor/Chat */}
-            <div className="flex border-b border-gray-200">
+            <div className={`flex border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
               <button 
                 onClick={() => setActiveTab('editor')}
-                className={`px-4 py-2 font-medium text-sm flex items-center ${activeTab === 'editor' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`px-4 py-2 font-medium text-sm flex items-center ${
+                  activeTab === 'editor' 
+                    ? `border-b-2 border-blue-500 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}` 
+                    : `${isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`
+                }`}
               >
                 <Edit3 size={16} className="mr-1" />
                 Editor
               </button>
               <button 
                 onClick={() => setActiveTab('chat')}
-                className={`px-4 py-2 font-medium text-sm flex items-center ${activeTab === 'chat' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`px-4 py-2 font-medium text-sm flex items-center ${
+                  activeTab === 'chat' 
+                    ? `border-b-2 border-blue-500 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}` 
+                    : `${isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`
+                }`}
               >
                 <MessageCircle size={16} className="mr-1" />
                 Chat
@@ -1300,55 +2136,41 @@ export default function AIWritingAssistant() {
             {/* Editor */}
             {activeTab === 'editor' && (
               <>
-                <div className="flex-1 p-6 overflow-y-auto">
+                <div className={`flex-1 p-6 overflow-y-auto ${isDarkMode ? 'bg-gray-900' : ''}`}>
                   <textarea
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     placeholder="Start writing or type '/' for commands..."
-                    className="w-full h-full p-4 border-none focus:outline-none focus:ring-0 bg-transparent resize-none"
+                    className={`w-full h-full p-4 border-none focus:outline-none focus:ring-0 bg-transparent resize-none ${
+                      isDarkMode ? 'text-gray-100' : ''
+                    }`}
                   />
                 </div>
                 
                 {/* Editor Controls */}
-                <div className="p-3 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
-                  <div className="text-sm text-gray-500">
+                <div className={`p-3 border-t flex justify-between items-center ${
+                  isDarkMode 
+                    ? 'border-gray-700 bg-gray-800 text-gray-300' 
+                    : 'border-gray-200 bg-gray-50'
+                }`}>
+                  <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                     {content.split(/\s+/).filter(Boolean).length} words
                   </div>
                   <div className="flex space-x-2">
-                    <button 
-                      className={`px-3 py-1 rounded-md text-sm flex items-center ${isGenerating ? 'bg-gray-200 text-gray-500' : 'bg-blue-100 text-blue-600 hover:bg-blue-200'}`}
-                      onClick={generateSuggestions}
-                      disabled={isGenerating}
+                    <motion.button 
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={saveDocument}
+                      disabled={!content.trim()}
+                      className={`px-3 py-1 rounded-md text-sm flex items-center ${
+                        !content.trim()
+                          ? `${isDarkMode ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-500'}` 
+                          : `${isDarkMode ? 'bg-blue-700 text-white hover:bg-blue-600' : 'bg-blue-600 text-white hover:bg-blue-700'}`
+                      }`}
                     >
-                      {isGenerating ? (
-                        <>
-                          <Loader className="mr-1 animate-spin" size={14} />
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw className="mr-1" size={14} />
-                          Generate Suggestions
-                        </>
-                      )}
-                    </button>
-                    <button 
-                      onClick={improveWriting}
-                      disabled={isGenerating || !content.trim()}
-                      className={`px-3 py-1 rounded-md text-sm flex items-center ${isGenerating || !content.trim() ? 'bg-gray-200 text-gray-500' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
-                    >
-                      {isGenerating ? (
-                        <>
-                          <Loader className="mr-1 animate-spin" size={14} />
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          <Send className="mr-1" size={14} />
-                          Improve Writing
-                        </>
-                      )}
-                    </button>
+                      <Save className="mr-1" size={14} />
+                      Save
+                    </motion.button>
                   </div>
                 </div>
               </>
@@ -1357,14 +2179,20 @@ export default function AIWritingAssistant() {
             {/* Chat Interface */}
             {activeTab === 'chat' && (
               <>
-                <div className="flex-1 p-4 overflow-y-auto bg-gray-50">
+                <div className={`flex-1 p-4 overflow-y-auto ${
+                  isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
+                }`}>
                   <div className="max-w-3xl mx-auto">
                     {/* Clear chat button - only visible when there are messages */}
                     {chatMessages.length > 0 && (
                       <div className="flex justify-end mb-4">
                         <button
                           onClick={clearChat}
-                          className="flex items-center text-xs py-1 px-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300"
+                          className={`flex items-center text-xs py-1 px-2 rounded ${
+                            isDarkMode 
+                              ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                          }`}
                         >
                           <Trash2 size={14} className="mr-1" />
                           Clear Chat
@@ -1374,11 +2202,15 @@ export default function AIWritingAssistant() {
                     
                     {/* Welcome message if no chat messages */}
                     {chatMessages.length === 0 && (
-                      <div className="text-center mt-10 mb-6">
+                      <div className={`text-center mt-10 mb-6 ${isDarkMode ? 'text-gray-300' : ''}`}>
                         <Bot size={48} className="mx-auto mb-3 text-blue-500" />
                         <h3 className="text-xl font-medium mb-2">Chat with your AI assistant</h3>
-                        <p className="text-gray-600 mb-3">Ask anything about writing, brainstorming, or get help with your document</p>
-                        <p className="text-sm text-blue-600 mb-6">
+                        <p className={`mb-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                          Ask anything about writing, brainstorming, or get help with your document
+                        </p>
+                        <p className={`text-sm mb-6 ${
+                          isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                        }`}>
                           Responses will be tailored to your selected <b>{documentTypes.find(t => t.id === documentType)?.name}</b> document type with a <b>{tone}</b> tone
                         </p>
                         
@@ -1389,7 +2221,9 @@ export default function AIWritingAssistant() {
                             {conversationStarters.map((starter, index) => (
                               <button 
                                 key={index} 
-                                className="starter-button"
+                                className={`starter-button ${
+                                  isDarkMode ? 'bg-gray-800 hover:bg-gray-700' : ''
+                                }`}
                                 onClick={() => selectConversationStarter(starter)}
                               >
                                 {starter}
@@ -1401,92 +2235,229 @@ export default function AIWritingAssistant() {
                     )}
                     
                     {/* Chat messages */}
-                    <div className="space-y-4">
+                    <motion.div 
+                      variants={staggerContainer}
+                      initial="hidden"
+                      animate="visible"
+                      className="space-y-4"
+                    >
                       {chatMessages.map((msg, index) => (
-                        <div 
+                        <motion.div 
                           key={index} 
+                          variants={msg.role === 'user' ? slideInFromRight : slideInFromLeft}
                           className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                         >
-                          <div className={`relative p-3 rounded-lg ${
+                          <motion.div 
+                            className={`relative p-3 rounded-lg ${
                               msg.role === 'user' 
                                 ? 'bg-blue-500 text-white max-w-[80%]' 
+                                : `${isDarkMode 
+                                    ? 'bg-gray-800 border-gray-700 text-gray-100 max-w-[80%]' 
                                 : 'bg-white border border-gray-200 text-gray-800 max-w-[80%]'
+                                  }`
                             }`}
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
                           >
                             {/* User avatar or AI indicator */}
                             {msg.role === 'assistant' && !msg.isTyping && (
-                              <div className="absolute -left-2 -top-2 w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
+                              <motion.div 
+                                className="absolute -left-2 -top-2 w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center"
+                                initial={{ scale: 0, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                transition={{ delay: 0.2, type: "spring", stiffness: 500 }}
+                              >
                                 <Bot size={12} className="text-blue-600" />
-                              </div>
+                              </motion.div>
                             )}
                             
                             {/* Message content */}
                             {msg.isTyping ? (
                               <div className="flex space-x-1 items-center h-6 py-3">
-                                <div className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                                <div className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                                <div className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                                <motion.div 
+                                  className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" 
+                                  style={{ animationDelay: '0ms' }}
+                                ></motion.div>
+                                <motion.div 
+                                  className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" 
+                                  style={{ animationDelay: '150ms' }}
+                                ></motion.div>
+                                <motion.div 
+                                  className="w-2 h-2 rounded-full bg-gray-300 animate-bounce" 
+                                  style={{ animationDelay: '300ms' }}
+                                ></motion.div>
                               </div>
                             ) : (
                               <div className="whitespace-pre-wrap">{msg.content}</div>
                             )}
-                          </div>
-                        </div>
+                          </motion.div>
+                        </motion.div>
                       ))}
                       
                       {/* Typing animation */}
                       {isTyping && (
-                        <div className="flex justify-start">
-                          <div className="relative p-3 rounded-lg bg-white border border-gray-200 text-gray-800 max-w-[80%]">
-                            <div className="absolute -left-2 -top-2 w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
+                        <motion.div 
+                          className="flex justify-start"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ type: "spring" }}
+                        >
+                          <motion.div 
+                            className={`relative p-3 rounded-lg max-w-[80%] ${
+                            isDarkMode 
+                              ? 'bg-gray-800 border-gray-700 text-gray-100' 
+                              : 'bg-white border border-gray-200 text-gray-800'
+                            }`}
+                            animate={{ 
+                              boxShadow: [
+                                "0 0 0 rgba(59, 130, 246, 0)",
+                                "0 0 10px rgba(59, 130, 246, 0.5)",
+                                "0 0 0 rgba(59, 130, 246, 0)"
+                              ]
+                            }}
+                            transition={{ 
+                              duration: 2,
+                              repeat: Infinity
+                            }}
+                          >
+                            <motion.div 
+                              className="absolute -left-2 -top-2 w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center"
+                              initial={{ scale: 0 }}
+                              animate={{ 
+                                scale: [1, 1.2, 1],
+                                rotate: [0, 10, -10, 0]
+                              }}
+                              transition={{ 
+                                scale: { duration: 2, repeat: Infinity },
+                                rotate: { duration: 1.5, repeat: Infinity }
+                              }}
+                            >
                               <Bot size={12} className="text-blue-600" />
+                            </motion.div>
+                            <div className="flex items-center space-x-2 h-6 py-3">
+                              <motion.div
+                                className={`h-3 w-3 rounded-full ${isDarkMode ? 'bg-blue-500' : 'bg-blue-400'}`}
+                                animate={{
+                                  scale: [1, 1.5, 1],
+                                  opacity: [0.5, 1, 0.5]
+                                }}
+                                transition={{
+                                  duration: 1,
+                                  repeat: Infinity,
+                                  ease: "easeInOut",
+                                  delay: 0
+                                }}
+                              />
+                              <motion.div
+                                className={`h-3 w-3 rounded-full ${isDarkMode ? 'bg-indigo-500' : 'bg-indigo-400'}`}
+                                animate={{
+                                  scale: [1, 1.5, 1],
+                                  opacity: [0.5, 1, 0.5]
+                                }}
+                                transition={{
+                                  duration: 1,
+                                  repeat: Infinity,
+                                  ease: "easeInOut",
+                                  delay: 0.2
+                                }}
+                              />
+                              <motion.div
+                                className={`h-3 w-3 rounded-full ${isDarkMode ? 'bg-purple-500' : 'bg-purple-400'}`}
+                                animate={{
+                                  scale: [1, 1.5, 1],
+                                  opacity: [0.5, 1, 0.5]
+                                }}
+                                transition={{
+                                  duration: 1,
+                                  repeat: Infinity,
+                                  ease: "easeInOut",
+                                  delay: 0.4
+                                }}
+                              />
                             </div>
-                            <div className="whitespace-pre-wrap">{typingText}</div>
-                          </div>
-                        </div>
+                            <div className="whitespace-pre-wrap mt-2">{typingText}</div>
+                          </motion.div>
+                        </motion.div>
                       )}
                       
                       {/* For auto-scrolling to bottom */}
                       <div ref={chatEndRef} />
-                    </div>
+                    </motion.div>
                   </div>
                 </div>
                 
-                <div className="p-3 border-t border-gray-200 bg-white">
+                <div className={`p-3 border-t ${
+                  isDarkMode 
+                    ? 'border-gray-700 bg-gray-800' 
+                    : 'border-gray-200 bg-white'
+                }`}>
                   <div className="max-w-3xl mx-auto">
                     <div className="flex">
-                      <input
+                      <motion.input
+                        whileFocus={{ scale: 1.01 }}
                         type="text"
                         value={messageInput}
                         onChange={(e) => setMessageInput(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && !isGenerating && messageInput.trim() && generateAIResponse()}
                         placeholder="Type a message..."
-                        className="flex-1 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className={`flex-1 p-3 rounded-l-lg focus:outline-none focus:ring-1 ${
+                          isDarkMode 
+                            ? 'bg-gray-700 border-gray-600 text-gray-100 focus:ring-blue-400 placeholder-gray-400' 
+                            : 'border border-gray-300 focus:ring-blue-500'
+                        }`}
                       />
-                      <button
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
                         onClick={generateAIResponse}
                         disabled={isGenerating || !messageInput.trim()}
-                        className={`p-3 rounded-r-lg ${isGenerating || !messageInput.trim() ? 'bg-gray-300 text-gray-500' : 'bg-blue-600 text-white hover:bg-blue-700'} transition-colors`}
+                        className={`p-3 rounded-r-lg transition-colors ${
+                          isGenerating || !messageInput.trim()
+                            ? `${isDarkMode ? 'bg-gray-600 text-gray-400' : 'bg-gray-300 text-gray-500'}` 
+                            : `${isDarkMode ? 'bg-blue-700 text-white hover:bg-blue-600' : 'bg-blue-600 text-white hover:bg-blue-700'}`
+                        }`}
                       >
-                        {isGenerating ? <Loader className="animate-spin" size={20} /> : <Send size={20} />}
-                      </button>
+                        {isGenerating ? 
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          >
+                            <Loader size={20} /> 
+                          </motion.div>
+                          : <Send size={20} />
+                        }
+                      </motion.button>
                     </div>
                     
                     <div className="mt-2 flex items-center justify-between">
-                      <div className="text-xs text-gray-500">
+                      <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         Using: <span className="font-semibold">{getModelDisplayName(model)}</span>
                         <span className="ml-2">({documentTypes.find(t => t.id === documentType)?.name}, {tone})</span>
-                        <button 
+                        <motion.button 
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
                           onClick={() => setShowUsageStats(!showUsageStats)}
-                          className="ml-2 underline text-blue-500 hover:text-blue-700"
+                          className={`ml-2 underline ${
+                            isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-500 hover:text-blue-700'
+                          }`}
                         >
                           Usage Stats
-                        </button>
+                        </motion.button>
                         
+                        <AnimatePresence>
                         {showUsageStats && (
-                          <div 
+                            <motion.div 
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: 20 }}
+                              transition={{ type: "spring", stiffness: 500, damping: 30 }}
                             ref={usageStatsRef}
-                            className="absolute bottom-16 left-4 w-64 bg-white rounded-md shadow-lg z-10 p-3 border border-gray-200 text-gray-800"
+                            className={`absolute bottom-16 left-4 w-64 rounded-md shadow-lg z-10 p-3 border ${
+                              isDarkMode 
+                                ? 'bg-gray-800 border-gray-700 text-gray-200' 
+                                : 'bg-white border-gray-200 text-gray-800'
+                            }`}
                           >
                             <h4 className="font-medium mb-2">Token Usage</h4>
                             <div className="mb-1">
@@ -1505,13 +2476,14 @@ export default function AIWritingAssistant() {
                                 </div>
                               )}
                             </div>
-                            <div className="text-xs mt-2 text-gray-500">
+                            <div className={`text-xs mt-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                               Note: Token counts are estimates. Actual usage may vary.
                             </div>
-                          </div>
+                            </motion.div>
                         )}
+                        </AnimatePresence>
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         Type / for commands
                       </div>
                     </div>
@@ -1523,74 +2495,222 @@ export default function AIWritingAssistant() {
 
           {/* Suggestions Panel with dynamic width - Only show in editor mode */}
           {activeTab === 'editor' && (
-            <div className="bg-white border-l border-gray-200 flex flex-col flex-shrink-0 relative resizable-panel" 
-                 style={{ width: `${rightPanelWidth}px` }}>
-              <div className="p-3 border-b border-gray-200 font-medium text-sm">
+            <motion.div 
+              className={`border-l flex flex-col flex-shrink-0 relative resizable-panel ${
+              isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+            }`} 
+              initial={{ x: 20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.3, type: "spring", stiffness: 300, damping: 30 }}
+              style={{ width: `${rightPanelWidth}px` }}
+            >
+              <div className={`p-3 border-b font-medium text-sm ${
+                isDarkMode ? 'border-gray-700 text-gray-300' : 'border-gray-200'
+              }`}>
                 AI Suggestions
               </div>
               
               <div className="flex-1 overflow-y-auto p-3 space-y-3">
                 {suggestions.length === 0 && !isGenerating ? (
-                  <div className="text-center text-gray-500 text-sm py-10">
-                    <RefreshCw className="mx-auto mb-2" size={20} />
-                    Click "Generate Suggestions" to get AI feedback on your writing
-                  </div>
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5 }}
+                    className={`text-center text-sm py-10 ${
+                      isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                    }`}
+                  >
+                    {!apiKeySet ? (
+                      <>
+                        {renderApiKeyPrompt()}
+                        <p className="mt-4">
+                          Once your API key is set, you can generate AI-powered suggestions.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <motion.div
+                          whileHover={{ rotate: 180 }}
+                          transition={{ duration: 0.5 }}
+                        >
+                          <RefreshCw className="mx-auto mb-2" size={20} />
+                        </motion.div>
+                        Click "Generate Suggestions" to get AI feedback on your writing
+                      </>
+                    )}
+                  </motion.div>
                 ) : isGenerating ? (
-                  <div className="text-center text-gray-500 text-sm py-10">
-                    <Loader className="mx-auto mb-2 animate-spin" size={20} />
-                    Analyzing your text...
-                  </div>
-                ) : (
-                  suggestions.map(suggestion => (
-                    <div 
-                      key={suggestion.id} 
-                      className={`p-3 rounded-md text-sm ${
-                        suggestion.type === 'improvement' ? 'bg-blue-50' :
-                        suggestion.type === 'grammar' ? 'bg-red-50' : 'bg-green-50'
-                      }`}
+                  <motion.div 
+                    className={`text-center text-sm py-10 ${
+                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                    }`}
+                  >
+                    <motion.div
+                      animate={{ 
+                        scale: [1, 1.2, 1],
+                        rotate: 360
+                      }}
+                      transition={{ 
+                        duration: 2, 
+                        repeat: Infinity, 
+                        ease: "easeInOut" 
+                      }}
+                      className="mx-auto mb-4 relative"
+                      style={{ width: '60px', height: '60px' }}
                     >
-                      <div className="flex justify-between items-start">
-                        <span className={`text-xs font-medium uppercase px-1.5 py-0.5 rounded ${
-                          suggestion.type === 'improvement' ? 'bg-blue-100 text-blue-700' :
-                          suggestion.type === 'grammar' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-                        }`}>
-                          {suggestion.type}
-                        </span>
+                      <motion.div
+                        className={`absolute inset-0 rounded-full ${isDarkMode ? 'bg-blue-700/30' : 'bg-blue-100'}`}
+                        animate={{ scale: [1, 1.2, 1] }}
+                        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Loader size={30} className={`${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+                  </div>
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.5 }}
+                    >
+                      <p className="font-medium mb-2">Analyzing your text...</p>
+                      <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                        Our AI is carefully examining your content to provide helpful suggestions
+                      </p>
+                    </motion.div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    variants={staggerContainer}
+                    initial="hidden"
+                    animate="visible"
+                  >
+                    {suggestions.map(suggestion => (
+                      <motion.div 
+                      key={suggestion.id} 
+                        variants={fadeIn}
+                        className={`p-3 rounded-lg ${
+                          isDarkMode 
+                            ? 'bg-gray-700 border-gray-600 border' 
+                            : 'bg-white border border-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <div className={`text-xs font-medium px-2 py-1 rounded ${
+                            suggestion.type === 'grammar' 
+                              ? isDarkMode ? 'bg-red-900/30 text-red-300' : 'bg-red-100 text-red-700'
+                              : suggestion.type === 'improvement'
+                              ? isDarkMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-100 text-blue-700'
+                              : isDarkMode ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-700'
+                          }`}>
+                            {suggestion.type.charAt(0).toUpperCase() + suggestion.type.slice(1)}
+                          </div>
                         <div className="flex space-x-1">
-                          {(suggestion.type === 'alternative' || suggestion.originalContent) && (
-                            <button 
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
                               onClick={() => applySuggestion(suggestion.id)}
-                              className="p-1 text-green-600 hover:bg-green-100 rounded"
-                              title={suggestion.originalContent ? "Revert to original" : "Apply suggestion"}
+                              className={`p-1 rounded ${
+                                isDarkMode 
+                                  ? 'text-gray-300 hover:bg-gray-600' 
+                                  : 'text-gray-700 hover:bg-gray-100'
+                              }`}
+                              title="Apply suggestion"
                             >
-                              <Check size={14} />
-                            </button>
-                          )}
-                          <button 
+                              <Check size={16} />
+                            </motion.button>
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
                             onClick={() => setSuggestions(suggestions.filter(s => s.id !== suggestion.id))}
-                            className="p-1 text-gray-500 hover:bg-gray-100 rounded"
-                            title="Dismiss"
+                            className={`p-1 rounded ${
+                                isDarkMode 
+                                  ? 'text-gray-300 hover:bg-gray-600' 
+                                  : 'text-gray-700 hover:bg-gray-100'
+                            }`}
+                              title="Dismiss suggestion"
                           >
-                            <Trash2 size={14} />
-                          </button>
+                              <Trash2 size={16} />
+                            </motion.button>
                         </div>
                       </div>
-                      <div className="mt-2">{suggestion.text}</div>
-                    </div>
-                  ))
+                      <div className={`mt-2 ${isDarkMode ? 'text-gray-300' : ''}`}>{suggestion.text}</div>
+                      </motion.div>
+                    ))}
+                  </motion.div>
                 )}
+                    </div>
+              
+              <div className="p-3 border-t flex space-x-2">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={generateSuggestions}
+                  disabled={isGenerating || !content.trim()}
+                  className={`flex-1 py-2 px-3 rounded-md text-sm flex items-center justify-center ${
+                    isGenerating || !content.trim()
+                      ? isDarkMode ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      : isDarkMode ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white'
+                  }`}
+                >
+                  {isGenerating ? (
+                    <motion.div
+                      animate={{ 
+                        rotate: 360,
+                        scale: [1, 1.1, 1] 
+                      }}
+                      transition={{ 
+                        rotate: { duration: 1, repeat: Infinity, ease: "linear" },
+                        scale: { duration: 0.5, repeat: Infinity }
+                      }}
+                      className="mr-2 text-white"
+                    >
+                      <RefreshCw size={16} />
+                    </motion.div>
+                  ) : (
+                    <RefreshCw size={14} className="mr-1" />
+                  )}
+                  {isGenerating ? 'Processing...' : 'Generate Suggestions'}
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={improveWriting}
+                  disabled={isGenerating || !content.trim()}
+                  className={`flex-1 py-2 px-3 rounded-md text-sm flex items-center justify-center ${
+                    isGenerating || !content.trim()
+                      ? isDarkMode ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      : isDarkMode ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-indigo-500 hover:bg-indigo-600 text-white'
+                  }`}
+                >
+                  {isGenerating ? (
+                    <motion.div
+                      animate={{ 
+                        rotate: 360,
+                        scale: [1, 1.1, 1] 
+                      }}
+                      transition={{ 
+                        rotate: { duration: 1, repeat: Infinity, ease: "linear" },
+                        scale: { duration: 0.5, repeat: Infinity }
+                      }}
+                      className="mr-2 text-white"
+                    >
+                      <PenTool size={16} />
+                    </motion.div>
+                  ) : (
+                    <PenTool size={14} className="mr-1" />
+                  )}
+                  {isGenerating ? 'Processing...' : 'Improve Writing'}
+                </motion.button>
               </div>
               
               {/* Right panel resizer */}
               <div
                 ref={rightResizeRef}
-                className={`resize-handle left-0 ${isDraggingRight ? 'active' : ''}`}
+                className={`absolute top-0 left-0 w-1 h-full cursor-col-resize ${isDarkMode ? 'bg-gray-600 hover:bg-blue-600' : 'bg-gray-200 hover:bg-blue-400'}`}
                 onMouseDown={handleRightResizerMouseDown}
               />
-            </div>
+            </motion.div>
           )}
-        </div>
-      </div>
 
       {/* Custom Model Form Modal */}
       {showCustomModelForm && (
@@ -1598,32 +2718,44 @@ export default function AIWritingAssistant() {
           ref={customModelFormRef}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
         >
-          <div className="bg-white rounded-lg shadow-xl p-6 w-96">
-            <h3 className="text-lg font-medium mb-4">Add Custom Model</h3>
+          <div className={`rounded-lg shadow-xl p-6 w-96 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <h3 className={`text-lg font-medium mb-4 ${isDarkMode ? 'text-gray-200' : ''}`}>Add Custom Model</h3>
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">Model ID</label>
+              <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : ''}`}>Model ID</label>
               <input
                 type="text"
                 value={customModelId}
                 onChange={(e) => setCustomModelId(e.target.value)}
                 placeholder="e.g., anthropic/claude-3-haiku-20240307"
-                className="w-full p-2 text-sm border border-gray-300 rounded-md"
+                className={`w-full p-2 text-sm rounded-md ${
+                  isDarkMode 
+                    ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' 
+                    : 'border border-gray-300'
+                }`}
               />
             </div>
             <div className="mb-6">
-              <label className="block text-sm font-medium mb-1">Display Name</label>
+              <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : ''}`}>Display Name</label>
               <input
                 type="text"
                 value={customModelName}
                 onChange={(e) => setCustomModelName(e.target.value)}
                 placeholder="e.g., Claude 3 Haiku"
-                className="w-full p-2 text-sm border border-gray-300 rounded-md"
+                className={`w-full p-2 text-sm rounded-md ${
+                  isDarkMode 
+                    ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' 
+                    : 'border border-gray-300'
+                }`}
               />
             </div>
             <div className="flex justify-between">
               <button
                 onClick={() => setShowCustomModelForm(false)}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                className={`px-4 py-2 rounded-md ${
+                  isDarkMode 
+                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-gray-600' 
+                    : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
               >
                 Cancel
               </button>
@@ -1633,6 +2765,8 @@ export default function AIWritingAssistant() {
                 className={`px-4 py-2 rounded-md text-white ${
                   isVerifyingModel || !customModelId.trim() || !customModelName.trim()
                     ? 'bg-gray-400' 
+                    : isDarkMode 
+                      ? 'bg-blue-600 hover:bg-blue-500' 
                     : 'bg-blue-500 hover:bg-blue-600'
                 }`}
               >
@@ -1646,6 +2780,283 @@ export default function AIWritingAssistant() {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+        </div>
+      </motion.div>
+
+      {/* API Key Management Modal */}
+      {showApiKeyModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+        >
+          <div 
+            ref={apiKeyModalRef}
+            className={`rounded-lg shadow-xl p-6 w-[500px] max-h-[90vh] overflow-y-auto ${
+              isDarkMode ? 'bg-gray-800' : 'bg-white'
+            }`}
+          >
+            <h3 className={`text-lg font-medium mb-4 ${isDarkMode ? 'text-gray-200' : ''}`}>
+              {apiKeySet ? 'Update OpenRouter API Key' : 'Add OpenRouter API Key'}
+            </h3>
+            
+            {apiKeySet && (
+              <div className={`mb-4 p-3 rounded-md ${
+                isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
+              }`}>
+                <div className="flex items-center mb-2">
+                  <Key size={16} className={`mr-2 ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`} />
+                  <span className={`font-medium text-sm ${isDarkMode ? 'text-gray-300' : ''}`}>Current API Key:</span>
+                </div>
+                <div className={`font-mono text-sm p-2 rounded border flex justify-between items-center ${
+                  isDarkMode 
+                    ? 'bg-gray-600 border-gray-600 text-gray-300' 
+                    : 'bg-gray-100 border-gray-200'
+                }`}>
+                  {maskedApiKey || '•••••••••••••••'}
+                  <button
+                    onClick={() => {
+                      // Just copy the masked version since we don't have access to the full key
+                      copyToClipboard(maskedApiKey);
+                      showNotification('Masked API key copied to clipboard', 'info');
+                    }}
+                    className={`ml-2 ${
+                      isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                    title="Copy masked API key to clipboard"
+                  >
+                    {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+                  </button>
+                </div>
+                <p className={`text-xs mt-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Your API key is securely masked showing only the first 3 and last 5 characters.
+                </p>
+              </div>
+            )}
+            
+            <div className="mb-5">
+              <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : ''}`}>
+                {apiKeySet ? 'New API Key' : 'API Key'}
+                <span className="ml-1 text-red-500">*</span>
+                <a 
+                  href="https://openrouter.ai/keys" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className={`ml-2 text-xs underline ${
+                    isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'
+                  }`}
+                >
+                  Get a key
+                </a>
+              </label>
+              <div className="relative">
+                <input
+                  type={showApiKey ? "text" : "password"}
+                  value={apiKeyInput}
+                  onChange={(e) => {
+                    setApiKeyInput(e.target.value);
+                    // Clear error when user starts typing again
+                    if (apiKeyError) setApiKeyError('');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && apiKeyInput.trim() && !isUpdatingApiKey) {
+                      updateApiKey();
+                    } else if (e.key === 'Escape') {
+                      setShowApiKeyModal(false);
+                      setApiKeyInput('');
+                      setApiKeyError('');
+                    }
+                  }}
+                  placeholder="sk-or-..."
+                  className={`w-full p-3 rounded-md font-mono text-sm pr-10 ${
+                    isDarkMode ? 'bg-gray-700 text-gray-200 placeholder-gray-400 border-gray-600' : ''
+                  }
+                    ${apiKeyInput && !apiKeyInput.startsWith('sk-or-') 
+                      ? isDarkMode ? 'border-red-700 bg-red-900/30' : 'border-red-300 bg-red-50' 
+                      : apiKeyInput.startsWith('sk-or-') 
+                        ? isDarkMode ? 'border-green-700 bg-green-900/30' : 'border-green-300 bg-green-50' 
+                        : isDarkMode ? 'border-gray-600' : 'border-gray-300'}`}
+                  autoComplete="off"
+                  autoFocus
+                />
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex">
+                  {apiKeyInput && (
+                    <span className="mr-2">
+                      {apiKeyInput.startsWith('sk-or-') 
+                        ? <Check className="text-green-500" size={18} />
+                        : apiKeyInput.length > 0 && <AlertCircle className="text-red-500" size={18} />}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className={isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}
+                  >
+                    {showApiKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+              
+              {apiKeyError && (
+                <p className="text-xs text-red-500 mt-1">{apiKeyError}</p>
+              )}
+              
+              <div className="mt-2 flex space-x-2">
+                <button
+                  onClick={testApiKey}
+                  disabled={isTestingApiKey || !apiKeyInput.trim() || !apiKeyInput.startsWith('sk-or-')}
+                  className={`px-3 py-1.5 text-sm rounded flex items-center justify-center
+                    ${isTestingApiKey || !apiKeyInput.trim() || !apiKeyInput.startsWith('sk-or-')
+                      ? isDarkMode ? 'bg-gray-700 text-gray-500' : 'bg-gray-100 text-gray-400'
+                      : apiKeyTestSuccess
+                        ? isDarkMode ? 'bg-green-900/50 text-green-400' : 'bg-green-100 text-green-700'
+                        : isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                    } cursor-${isTestingApiKey || !apiKeyInput.trim() || !apiKeyInput.startsWith('sk-or-') ? 'not-allowed' : 'pointer'}`}
+                >
+                  {isTestingApiKey ? (
+                    <Loader className="mr-1 animate-spin" size={14} />
+                  ) : apiKeyTestSuccess ? (
+                    <Check className="mr-1" size={14} />
+                  ) : (
+                    <Shield className="mr-1" size={14} />
+                  )}
+                  {apiKeyTestSuccess ? 'Verified' : 'Test Connection'}
+                </button>
+              </div>
+              
+              <p className={`text-xs mt-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                Enter your OpenRouter API key. Get one at{' '}
+                <a 
+                  href="https://openrouter.ai/keys" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className={`hover:underline ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`}
+                >
+                  openrouter.ai/keys
+                </a>
+              </p>
+            </div>
+            
+            {/* More information about API keys */}
+            <div className={`mb-5 p-3 rounded flex items-start ${
+              isDarkMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-800'
+            }`}>
+              <Info size={14} className={`mt-0.5 mr-2 flex-shrink-0 ${
+                isDarkMode ? 'text-blue-400' : 'text-blue-500'
+              }`} />
+              <div>
+                <strong>Why do I need an API key?</strong>
+                <p className="mt-1">
+                  The API key connects this app to OpenRouter's AI models. Your key allows access to models 
+                  like Llama, Gemini, and DeepSeek to power all writing features.
+                </p>
+                <p className="mt-1">
+                  OpenRouter offers free credits for many models, making it easy to get started.
+                </p>
+              </div>
+            </div>
+            
+            {/* Remember key option */}
+            <div className="mb-5 flex items-center">
+              <input
+                type="checkbox"
+                id="rememberKey"
+                checked={rememberKey}
+                onChange={(e) => setRememberKey(e.target.checked)}
+                className="mr-2"
+              />
+              <label htmlFor="rememberKey" className={`text-sm ${
+                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+              }`}>
+                Remember this key in browser storage
+              </label>
+              <button
+                className={`ml-1 ${
+                  isDarkMode ? 'text-gray-500 hover:text-gray-400' : 'text-gray-400 hover:text-gray-600'
+                }`}
+                onClick={() => setShowSecurityInfo(!showSecurityInfo)}
+              >
+                <Info size={14} />
+              </button>
+              
+              {showSecurityInfo && (
+                <div 
+                  ref={securityInfoRef}
+                  className={`absolute mt-1 ml-5 w-64 rounded-md shadow-lg z-30 p-3 border text-xs ${
+                    isDarkMode 
+                      ? 'bg-gray-800 border-gray-700 text-gray-300' 
+                      : 'bg-white border-gray-200 text-gray-700'
+                  }`}
+                >
+                  <h4 className="font-semibold mb-1">About API Key Storage</h4>
+                  <p className="mb-2">
+                    If checked, your API key will be stored securely in your browser's local storage.
+                    This means you won't need to re-enter it each time you use the application.
+                  </p>
+                  <p>
+                    If unchecked, your key will only be stored for the current session and you'll
+                    need to enter it again when you reload the page.
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-between">
+              <button
+                onClick={() => {
+                  setShowApiKeyModal(false);
+                  setApiKeyInput('');
+                  setApiKeyError('');
+                  setApiKeyTestSuccess(false);
+                }}
+                className={`px-4 py-2 rounded-md ${
+                  isDarkMode 
+                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-gray-600' 
+                    : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={updateApiKey}
+                disabled={isUpdatingApiKey || !apiKeyInput.trim() || !apiKeyInput.startsWith('sk-or-')}
+                className={`px-4 py-2 rounded-md text-white ${
+                  isUpdatingApiKey || !apiKeyInput.trim() || !apiKeyInput.startsWith('sk-or-')
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : isDarkMode 
+                      ? 'bg-blue-600 hover:bg-blue-500' 
+                      : 'bg-blue-500 hover:bg-blue-600'
+                }`}
+              >
+                {isUpdatingApiKey ? (
+                  <>
+                    <Loader size={16} className="inline mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  'Save API Key'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Toast Notification */}
+      {showToast && (
+        <div className={`fixed bottom-5 right-5 p-4 rounded-md shadow-lg z-50 
+          ${toastType === 'success' ? 'bg-green-100 border-l-4 border-green-500' :
+            toastType === 'error' ? 'bg-red-100 border-l-4 border-red-500' : 
+            'bg-blue-100 border-l-4 border-blue-500'}`}>
+          <div className="flex items-center">
+            {toastType === 'success' && <Check className="text-green-500 mr-2" size={20} />}
+            {toastType === 'error' && <AlertCircle className="text-red-500 mr-2" size={20} />}
+            {toastType === 'info' && <Info className="text-blue-500 mr-2" size={20} />}
+            <p className={`text-sm ${
+              toastType === 'success' ? 'text-green-700' : 
+              toastType === 'error' ? 'text-red-700' : 'text-blue-700'
+            }`}>{toastMessage}</p>
           </div>
         </div>
       )}

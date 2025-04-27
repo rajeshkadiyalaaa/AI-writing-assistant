@@ -179,7 +179,18 @@ app.post('/api/generate', async (req, res) => {
 // API endpoint to generate writing suggestions
 app.post('/api/suggestions', async (req, res) => {
   try {
-    const { content, documentType, tone } = req.body;
+    const { content, documentType, tone, model } = req.body;
+    
+    if (!content || content.trim() === '') {
+      return res.status(400).json({ 
+        error: 'No content provided',
+        suggestions: [
+          { id: 1, type: 'grammar', text: 'Please provide some text to analyze for suggestions.' }
+        ]
+      });
+    }
+    
+    console.log(`Generating suggestions for ${documentType} content with ${tone} tone using model: ${model}`);
     
     // Create a Python process to use our existing AI integration
     const pythonProcess = spawn('python', [
@@ -187,31 +198,73 @@ app.post('/api/suggestions', async (req, res) => {
       JSON.stringify({
         content,
         documentType,
-        tone
+        tone,
+        model
       })
     ]);
     
     let responseData = '';
+    let errorOutput = '';
     
     pythonProcess.stdout.on('data', (data) => {
       responseData += data.toString();
     });
     
     pythonProcess.stderr.on('data', (data) => {
+      errorOutput += data.toString();
       console.error(`Python stderr: ${data}`);
     });
     
     pythonProcess.on('close', (code) => {
       if (code !== 0) {
-        return res.status(500).json({ error: 'Error generating suggestions' });
+        console.error(`Python process exited with code ${code}`);
+        console.error(`Error output: ${errorOutput}`);
+        return res.status(500).json({ 
+          error: 'Error generating suggestions',
+          details: errorOutput,
+          suggestions: [
+            { id: 1, type: 'improvement', text: 'The system encountered an error while analyzing your text. Please try again with different content or check your API key.' }
+          ]
+        });
       }
       
       try {
+        console.log(`Python process completed. Parsing response...`);
+        // Validate the response is proper JSON
+        if (!responseData || responseData.trim() === '') {
+          throw new Error('Empty response from Python script');
+        }
+        
         const jsonResponse = JSON.parse(responseData);
+        
+        // Extra validation for response structure
+        if (jsonResponse.error) {
+          console.error(`Error in Python response: ${jsonResponse.error}`);
+          // Still return a structured response with error and fallback suggestions
+          return res.json({
+            error: jsonResponse.error,
+            details: jsonResponse.details || '',
+            suggestions: [
+              { id: 1, type: 'improvement', text: 'Could not generate suggestions. ' + jsonResponse.error }
+            ]
+          });
+        }
+        
+        // Validate suggestions exist in some form
+        if (!jsonResponse.suggestions && !jsonResponse.raw_suggestions) {
+          console.log('No suggestions found in response, providing fallback');
+          jsonResponse.suggestions = {
+            'other': ['The system analyzed your text but couldn\'t generate specific suggestions.']
+          };
+        }
+        
         return res.json(jsonResponse);
       } catch (error) {
+        console.error(`Error parsing Python response: ${error.message}`);
+        console.error(`Raw response: ${responseData}`);
         // Return example suggestions if parsing fails
         return res.json({ 
+          error: 'Failed to parse response from suggestion generator',
           suggestions: [
             { id: 1, type: 'improvement', text: 'Consider using more concise language.' },
             { id: 2, type: 'alternative', text: 'Alternative phrasing: "This system would enhance productivity."' },
@@ -222,14 +275,21 @@ app.post('/api/suggestions', async (req, res) => {
     });
   } catch (error) {
     console.error('Error:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ 
+      error: 'Server error',
+      suggestions: [
+        { id: 1, type: 'grammar', text: 'The server encountered an error while processing your request.' }
+      ]
+    });
   }
 });
 
 // API endpoint to improve readability of content
 app.post('/api/improve', async (req, res) => {
   try {
-    const { content, targetAudience, readingLevel, additionalInstructions } = req.body;
+    const { content, targetAudience, readingLevel, additionalInstructions, model } = req.body;
+    
+    console.log(`Improving readability for ${targetAudience} audience at ${readingLevel} level using model: ${model}`);
     
     // Create a Python process to use the improve_readability script
     const pythonProcess = spawn('python', [
@@ -238,7 +298,8 @@ app.post('/api/improve', async (req, res) => {
         content,
         targetAudience,
         readingLevel,
-        additionalInstructions
+        additionalInstructions,
+        model
       })
     ]);
     
@@ -254,13 +315,17 @@ app.post('/api/improve', async (req, res) => {
     
     pythonProcess.on('close', (code) => {
       if (code !== 0) {
+        console.error(`Python process exited with code ${code}`);
         return res.status(500).json({ error: 'Error improving content readability' });
       }
       
       try {
+        console.log(`Python process completed. Parsing response...`);
         const jsonResponse = JSON.parse(responseData);
         return res.json(jsonResponse);
       } catch (error) {
+        console.error(`Error parsing Python response: ${error.message}`);
+        console.error(`Raw response: ${responseData}`);
         // Return error if parsing fails
         return res.status(500).json({ 
           error: 'Failed to parse improved content' 
@@ -276,24 +341,24 @@ app.post('/api/improve', async (req, res) => {
 // API endpoint to verify a custom model
 app.post('/api/verify-model', async (req, res) => {
   try {
-    const { model } = req.body;
+    const { model, apiKey } = req.body;
     
     if (!model) {
       return res.status(400).json({ success: false, error: 'Model ID is required' });
     }
     
-    // Get API key from environment
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    if (!apiKey) {
+    // Get API key from request or environment
+    const useApiKey = apiKey || process.env.OPENROUTER_API_KEY;
+    if (!useApiKey) {
       return res.status(500).json({ 
         success: false, 
-        error: 'API key not found. Please set OPENROUTER_API_KEY in your .env file.'
+        error: 'API key not found. Please set OPENROUTER_API_KEY in your .env file or provide it in the request.'
       });
     }
     
     // Prepare headers for API request
     const headers = {
-      'Authorization': `Bearer ${apiKey}`,
+      'Authorization': `Bearer ${useApiKey}`,
       'Content-Type': 'application/json',
       'HTTP-Referer': 'https://example.com'  // Replace with your actual domain
     };
@@ -338,6 +403,66 @@ app.post('/api/verify-model', async (req, res) => {
     });
   }
 });
+
+// API endpoint to update API key
+app.post('/api/settings/apikey', async (req, res) => {
+  try {
+    const { apiKey } = req.body;
+    
+    if (!apiKey || apiKey.trim() === '') {
+      return res.status(400).json({ error: 'API key cannot be empty' });
+    }
+
+    // Simple validation for OpenRouter API key format (starts with sk-or-)
+    if (!apiKey.startsWith('sk-or-')) {
+      return res.status(400).json({ error: 'Invalid API key format. OpenRouter API keys should start with sk-or-' });
+    }
+
+    // In a production app, you'd update an environment variable or database
+    // For demo purposes, we'll update the in-memory value
+    process.env.OPENROUTER_API_KEY = apiKey;
+    
+    // Return a masked version of the API key (first 3 and last 5 chars)
+    const maskedKey = maskApiKey(apiKey);
+    
+    console.log('API key updated successfully');
+    res.json({ 
+      success: true, 
+      message: 'API key updated successfully',
+      maskedKey
+    });
+  } catch (error) {
+    console.error('Error updating API key:', error);
+    res.status(500).json({ error: 'Server error', message: error.message });
+  }
+});
+
+// API endpoint to get the masked API key
+app.get('/api/settings/apikey', (req, res) => {
+  try {
+    const apiKey = process.env.OPENROUTER_API_KEY || '';
+    const maskedKey = maskApiKey(apiKey);
+    
+    res.json({ 
+      maskedKey,
+      isSet: apiKey !== ''
+    });
+  } catch (error) {
+    console.error('Error getting API key info:', error);
+    res.status(500).json({ error: 'Server error', message: error.message });
+  }
+});
+
+// Helper function to mask the API key
+function maskApiKey(apiKey) {
+  if (!apiKey || apiKey.length < 8) return '';
+  
+  const firstThree = apiKey.substring(0, 3);
+  const lastFive = apiKey.substring(apiKey.length - 5);
+  const masked = `${firstThree}...${lastFive}`;
+  
+  return masked;
+}
 
 // Health check endpoint for debugging deployment issues
 app.get('/api/health', (req, res) => {
