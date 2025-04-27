@@ -90,16 +90,6 @@ export default function AIWritingAssistant() {
   const [apiKeyTestSuccess, setApiKeyTestSuccess] = useState(false);
   const [rememberKey, setRememberKey] = useState(true);
   const [showSecurityInfo, setShowSecurityInfo] = useState(false);
-  // Add these new state variables at the beginning of the AIWritingAssistant component
-  const [userPreferences, setUserPreferences] = useState(() => {
-    const savedPrefs = localStorage.getItem('user_suggestion_preferences');
-    return savedPrefs ? JSON.parse(savedPrefs) : {
-      preferredCategories: ['grammar', 'style', 'structure', 'content', 'clarity'],
-      ignoredPatterns: [],
-      highQualitySuggestions: [],
-      lowQualitySuggestions: []
-    };
-  });
   
   // Dark Mode state
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -356,7 +346,7 @@ export default function AIWritingAssistant() {
     // If it's already an array, return it
     if (Array.isArray(suggestionData)) {
       console.log('Suggestion data is already an array');
-      return applyUserPreferences(suggestionData);
+      return suggestionData;
     }
     
     // If it's a categorized object (from the Python script), convert to array
@@ -367,34 +357,30 @@ export default function AIWritingAssistant() {
       
       // Process each category
       Object.entries(suggestionData).forEach(([category, items]) => {
-        // Filter categories based on user preferences
-        if (userPreferences.preferredCategories.includes(category)) {
-          console.log(`Processing category: ${category}, items:`, items);
-          if (Array.isArray(items)) {
-            items.forEach(text => {
-              result.push({
-                id: idCounter++,
-                type: mapCategoryToType(category),
-                text: text,
-                category: category
-              });
+        console.log(`Processing category: ${category}, items:`, items);
+        if (Array.isArray(items)) {
+          items.forEach(text => {
+            result.push({
+              id: idCounter++,
+              type: mapCategoryToType(category),
+              text: text
             });
-          }
+          });
         }
       });
       
       console.log('Normalized suggestions:', result);
-      return applyUserPreferences(result);
+      return result;
     }
     
     // Handle string response case (sometimes the API returns a raw string)
     if (typeof suggestionData === 'string') {
       console.log('Suggestion data is a string, creating a single suggestion');
-      return applyUserPreferences([{
+      return [{
         id: 1,
         type: 'improvement',
         text: suggestionData
-      }]);
+      }];
     }
     
     console.log('Unhandled suggestion data type, returning empty array');
@@ -1404,114 +1390,48 @@ export default function AIWritingAssistant() {
     );
   };
 
-  // Add this new function to handle suggestion feedback
-  const handleSuggestionFeedback = (suggestionId, isHelpful) => {
-    // Find the suggestion in the current list
-    const suggestion = suggestions.find(s => s.id === suggestionId);
+  // Function to handle suggestion feedback
+  const handleSuggestionFeedback = (id, isHelpful) => {
+    // Find the suggestion by ID
+    const suggestion = suggestions.find(s => s.id === id);
     if (!suggestion) return;
     
-    // Create updated preferences
-    const updatedPreferences = {...userPreferences};
+    // Log the feedback for later analysis
+    console.log(`User rated suggestion as ${isHelpful ? 'helpful' : 'not helpful'}:`, suggestion);
     
-    if (isHelpful) {
-      // Add to high quality suggestions
-      updatedPreferences.highQualitySuggestions = [
-        ...updatedPreferences.highQualitySuggestions,
-        {
-          text: suggestion.text,
-          type: suggestion.type,
-          timestamp: new Date().toISOString()
-        }
-      ];
-      
-      // Keep only the last 50 high quality suggestions
-      if (updatedPreferences.highQualitySuggestions.length > 50) {
-        updatedPreferences.highQualitySuggestions = updatedPreferences.highQualitySuggestions.slice(-50);
+    // In a production app, you would send this to your backend
+    // For now, we'll just update the UI
+    const updatedSuggestions = suggestions.map(s => {
+      if (s.id === id) {
+        return {
+          ...s,
+          rated: true,
+          wasHelpful: isHelpful
+        };
       }
-    } else {
-      // Add to low quality suggestions
-      updatedPreferences.lowQualitySuggestions = [
-        ...updatedPreferences.lowQualitySuggestions,
-        {
-          text: suggestion.text,
-          type: suggestion.type,
-          timestamp: new Date().toISOString()
-        }
-      ];
-      
-      // Extract a pattern to ignore from this unhelpful suggestion
-      const words = suggestion.text.toLowerCase().split(/\s+/);
-      // Common words to filter out (we don't want to ignore these)
-      const commonWords = ['the', 'and', 'that', 'this', 'with', 'for', 'you', 'your', 'have', 'should', 'would', 'could', 'from', 'text'];
-      
-      if (words.length > 3) {
-        // Find potentially unique phrases to ignore
-        const uniquePhrases = words.filter(w => w.length > 6 && !commonWords.includes(w));
-        if (uniquePhrases.length > 0) {
-          // Add the most unique word as a pattern to potentially ignore
-          const newPattern = uniquePhrases[0];
-          if (!updatedPreferences.ignoredPatterns.includes(newPattern)) {
-            updatedPreferences.ignoredPatterns = [
-              ...updatedPreferences.ignoredPatterns,
-              newPattern
-            ];
-            
-            // Keep only the last 20 ignored patterns
-            if (updatedPreferences.ignoredPatterns.length > 20) {
-              updatedPreferences.ignoredPatterns = updatedPreferences.ignoredPatterns.slice(-20);
-            }
-          }
-        }
-      }
-    }
-    
-    // Save updated preferences
-    setUserPreferences(updatedPreferences);
-    localStorage.setItem('user_suggestion_preferences', JSON.stringify(updatedPreferences));
-    
-    // Show acknowledgment
-    showNotification(isHelpful ? "Thanks for your feedback! We'll improve future suggestions." : "Thanks for your feedback. We'll avoid similar suggestions.", 'info');
-  };
-  
-  // Add this helper function for applying user preferences
-  const applyUserPreferences = (suggestions) => {
-    // If no preferences are set, return all suggestions
-    if (!userPreferences || !userPreferences.ignoredPatterns) {
-      return suggestions;
-    }
-    
-    // Filter out suggestions matching ignored patterns
-    return suggestions.filter(suggestion => {
-      const text = suggestion.text.toLowerCase();
-      // Skip suggestions containing ignored patterns
-      return !userPreferences.ignoredPatterns.some(pattern => 
-        text.includes(pattern.toLowerCase())
-      );
+      return s;
     });
-  }
-
-  // Add new state variable for preferences modal
-  const [showPreferencesModal, setShowPreferencesModal] = useState(false);
-  const preferencesModalRef = useRef(null);
-  
-  // Function to manage user preferences
-  const manageSuggestionPreferences = () => {
-    setShowPreferencesModal(true);
-  };
-  
-  // Add this function to reset preferences
-  const resetSuggestionPreferences = () => {
-    const defaultPreferences = {
-      preferredCategories: ['grammar', 'style', 'structure', 'content', 'clarity'],
-      ignoredPatterns: [],
-      highQualitySuggestions: [],
-      lowQualitySuggestions: []
-    };
     
-    setUserPreferences(defaultPreferences);
-    localStorage.setItem('user_suggestion_preferences', JSON.stringify(defaultPreferences));
-    showNotification('Your suggestion preferences have been reset', 'success');
-    setShowPreferencesModal(false);
+    setSuggestions(updatedSuggestions);
+    
+    // Store feedback in localStorage for personalization
+    try {
+      const storedFeedback = JSON.parse(localStorage.getItem('suggestionFeedback') || '{}');
+      storedFeedback[suggestion.type] = storedFeedback[suggestion.type] || { helpful: 0, unhelpful: 0 };
+      
+      if (isHelpful) {
+        storedFeedback[suggestion.type].helpful += 1;
+      } else {
+        storedFeedback[suggestion.type].unhelpful += 1;
+      }
+      
+      localStorage.setItem('suggestionFeedback', JSON.stringify(storedFeedback));
+    } catch (e) {
+      console.error('Error storing feedback:', e);
+    }
+    
+    // Show feedback notification
+    showNotification(`Thank you for your feedback on this ${suggestion.type} suggestion!`, 'success');
   };
 
   return (
@@ -2759,49 +2679,312 @@ export default function AIWritingAssistant() {
                       </div>
                       <div className={`mt-2 ${isDarkMode ? 'text-gray-300' : ''}`}>{suggestion.text}</div>
                       
-                      {/* Suggestion feedback section */}
-                      <div className={`mt-3 pt-2 border-t ${isDarkMode ? 'border-gray-600' : 'border-gray-200'}`}>
-                        <div className="flex justify-between items-center">
-                          <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                            Was this suggestion helpful?
-                          </span>
+                      {/* Suggestion feedback UI */}
+                      {!suggestion.rated && (
+                        <div className={`mt-3 pt-2 border-t ${isDarkMode ? 'border-gray-600' : 'border-gray-200'} flex justify-between items-center text-xs`}>
+                          <span className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>Was this helpful?</span>
                           <div className="flex space-x-2">
                             <motion.button
                               whileHover={{ scale: 1.1 }}
                               whileTap={{ scale: 0.9 }}
                               onClick={() => handleSuggestionFeedback(suggestion.id, true)}
-                              className={`p-1 rounded text-xs ${
+                              className={`p-1 px-2 rounded ${
                                 isDarkMode 
                                   ? 'bg-green-900/30 text-green-300 hover:bg-green-800/50' 
                                   : 'bg-green-100 text-green-700 hover:bg-green-200'
                               }`}
-                              title="This suggestion was helpful"
                             >
-                              <ThumbsUp size={14} className="mr-1 inline" />
+                              <ThumbsUp size={12} className="inline mr-1" />
                               Yes
                             </motion.button>
                             <motion.button
                               whileHover={{ scale: 1.1 }}
                               whileTap={{ scale: 0.9 }}
                               onClick={() => handleSuggestionFeedback(suggestion.id, false)}
-                              className={`p-1 rounded text-xs ${
+                              className={`p-1 px-2 rounded ${
                                 isDarkMode 
                                   ? 'bg-red-900/30 text-red-300 hover:bg-red-800/50' 
                                   : 'bg-red-100 text-red-700 hover:bg-red-200'
                               }`}
-                              title="This suggestion was not helpful"
                             >
-                              <ThumbsDown size={14} className="mr-1 inline" />
+                              <ThumbsDown size={12} className="inline mr-1" />
                               No
                             </motion.button>
                           </div>
                         </div>
-                      </div>
-                      </motion.div>
-                    ))}
+                      )}
+                      
+                      {/* Feedback thank you message */}
+                      {suggestion.rated && (
+                        <div className={`mt-3 pt-2 border-t ${isDarkMode ? 'border-gray-600' : 'border-gray-200'} text-xs ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                        }`}>
+                          Thank you for your feedback!
+                        </div>
+                      )}
+                    </motion.div>
+                  ))}
                   </motion.div>
                 )}
                     </div>
+              
+              <div className="p-3 border-t flex space-x-2">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={generateSuggestions}
+                  disabled={isGenerating || !content.trim()}
+                  className={`flex-1 py-2 px-3 rounded-md text-sm flex items-center justify-center ${
+                    isGenerating || !content.trim()
+                      ? isDarkMode ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      : isDarkMode ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white'
+                  }`}
+                >
+                  {isGenerating ? (
+                    <motion.div
+                      animate={{ 
+                        rotate: 360,
+                        scale: [1, 1.1, 1] 
+                      }}
+                      transition={{ 
+                        rotate: { duration: 1, repeat: Infinity, ease: "linear" },
+                        scale: { duration: 0.5, repeat: Infinity }
+                      }}
+                      className="mr-2 text-white"
+                    >
+                      <RefreshCw size={16} />
+                    </motion.div>
+                  ) : (
+                    <RefreshCw size={14} className="mr-1" />
+                  )}
+                  {isGenerating ? 'Processing...' : 'Generate Suggestions'}
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={improveWriting}
+                  disabled={isGenerating || !content.trim()}
+                  className={`flex-1 py-2 px-3 rounded-md text-sm flex items-center justify-center ${
+                    isGenerating || !content.trim()
+                      ? isDarkMode ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      : isDarkMode ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-indigo-500 hover:bg-indigo-600 text-white'
+                  }`}
+                >
+                  {isGenerating ? (
+                    <motion.div
+                      animate={{ 
+                        rotate: 360,
+                        scale: [1, 1.1, 1] 
+                      }}
+                      transition={{ 
+                        rotate: { duration: 1, repeat: Infinity, ease: "linear" },
+                        scale: { duration: 0.5, repeat: Infinity }
+                      }}
+                      className="mr-2 text-white"
+                    >
+                      <PenTool size={16} />
+                    </motion.div>
+                  ) : (
+                    <PenTool size={14} className="mr-1" />
+                  )}
+                  {isGenerating ? 'Processing...' : 'Improve Writing'}
+                </motion.button>
+              </div>
+              
+              {/* Right panel resizer */}
+              <div
+                ref={rightResizeRef}
+                className={`absolute top-0 left-0 w-1 h-full cursor-col-resize ${isDarkMode ? 'bg-gray-600 hover:bg-blue-600' : 'bg-gray-200 hover:bg-blue-400'}`}
+                onMouseDown={handleRightResizerMouseDown}
+              />
+            </motion.div>
+          )}
+
+      {/* Custom Model Form Modal */}
+      {showCustomModelForm && (
+        <div 
+          ref={customModelFormRef}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+        >
+          <div className={`rounded-lg shadow-xl p-6 w-96 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <h3 className={`text-lg font-medium mb-4 ${isDarkMode ? 'text-gray-200' : ''}`}>Add Custom Model</h3>
+            <div className="mb-4">
+              <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : ''}`}>Model ID</label>
+              <input
+                type="text"
+                value={customModelId}
+                onChange={(e) => setCustomModelId(e.target.value)}
+                placeholder="e.g., anthropic/claude-3-haiku-20240307"
+                className={`w-full p-2 text-sm rounded-md ${
+                  isDarkMode 
+                    ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' 
+                    : 'border border-gray-300'
+                }`}
+              />
+            </div>
+            <div className="mb-6">
+              <label className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : ''}`}>Display Name</label>
+              <input
+                type="text"
+                value={customModelName}
+                onChange={(e) => setCustomModelName(e.target.value)}
+                placeholder="e.g., Claude 3 Haiku"
+                className={`w-full p-2 text-sm rounded-md ${
+                  isDarkMode 
+                    ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' 
+                    : 'border border-gray-300'
+                }`}
+              />
+            </div>
+            <div className="flex justify-between">
+              <button
+                onClick={() => setShowCustomModelForm(false)}
+                className={`px-4 py-2 rounded-md ${
+                  isDarkMode 
+                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-gray-600' 
+                    : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={addCustomModel}
+                disabled={isVerifyingModel || !customModelId.trim() || !customModelName.trim()}
+                className={`px-4 py-2 rounded-md text-white ${
+                  isVerifyingModel || !customModelId.trim() || !customModelName.trim()
+                    ? 'bg-gray-400' 
+                    : isDarkMode 
+                      ? 'bg-blue-600 hover:bg-blue-500' 
+                    : 'bg-blue-500 hover:bg-blue-600'
+                }`}
+              >
+                {isVerifyingModel ? (
+                  <>
+                    <Loader size={16} className="inline mr-2 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  'Add & Verify Model'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+        </div>
+      </motion.div>
+
+      {/* API Key Management Modal */}
+      {showApiKeyModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+        >
+          <div 
+            ref={apiKeyModalRef}
+            className={`rounded-lg shadow-xl p-6 w-[500px] max-h-[90vh] overflow-y-auto ${
+              isDarkMode ? 'bg-gray-800' : 'bg-white'
+            }`}
+          >
+            <h3 className={`text-lg font-medium mb-4 ${isDarkMode ? 'text-gray-200' : ''}`}>
+              {apiKeySet ? 'Update OpenRouter API Key' : 'Add OpenRouter API Key'}
+            </h3>
+            
+            {apiKeySet && (
+              <div className={`mb-4 p-3 rounded-md ${
+                isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
+              }`}>
+                <div className="flex items-center mb-2">
+                  <Key size={16} className={`mr-2 ${isDarkMode ? 'text-blue-400' : 'text-blue-500'}`} />
+                  <span className={`font-medium text-sm ${isDarkMode ? 'text-gray-300' : ''}`}>Current API Key:</span>
+                </div>
+                <div className={`font-mono text-sm p-2 rounded border flex justify-between items-center ${
+                  isDarkMode 
+                    ? 'bg-gray-600 border-gray-600 text-gray-300' 
+                    : 'bg-gray-100 border-gray-200'
+                }`}>
+                  {maskedApiKey || '•••••••••••••••'}
+                  <button
+                    onClick={() => {
+                      // Just copy the masked version since we don't have access to the full key
+                      copyToClipboard(maskedApiKey);
+                      showNotification('Masked API key copied to clipboard', 'info');
+                    }}
+                    className={`ml-2 ${
+                      isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                    title="Copy masked API key to clipboard"
+                  >
+                    {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+                  </button>
+                </div>
+                <p className={`text-xs mt-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Your API key is securely masked showing only the first 3 and last 5 characters.
+                </p>
+              </div>
+            )}
+            
+            <div className="mb-5">
+              <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : ''}`}>
+                {apiKeySet ? 'New API Key' : 'API Key'}
+                <span className="ml-1 text-red-500">*</span>
+                <a 
+                  href="https://openrouter.ai/keys" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className={`ml-2 text-xs underline ${
+                    isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'
+                  }`}
+                >
+                  Get a key
+                </a>
+              </label>
+              <div className="relative">
+                <input
+                  type={showApiKey ? "text" : "password"}
+                  value={apiKeyInput}
+                  onChange={(e) => {
+                    setApiKeyInput(e.target.value);
+                    // Clear error when user starts typing again
+                    if (apiKeyError) setApiKeyError('');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && apiKeyInput.trim() && !isUpdatingApiKey) {
+                      updateApiKey();
+                    } else if (e.key === 'Escape') {
+                      setShowApiKeyModal(false);
+                      setApiKeyInput('');
+                      setApiKeyError('');
+                    }
+                  }}
+                  placeholder="sk-or-..."
+                  className={`w-full p-3 rounded-md font-mono text-sm pr-10 ${
+                    isDarkMode ? 'bg-gray-700 text-gray-200 placeholder-gray-400 border-gray-600' : ''
+                  }
+                    ${apiKeyInput && !apiKeyInput.startsWith('sk-or-') 
+                      ? isDarkMode ? 'border-red-700 bg-red-900/30' : 'border-red-300 bg-red-50' 
+                      : apiKeyInput.startsWith('sk-or-') 
+                        ? isDarkMode ? 'border-green-700 bg-green-900/30' : 'border-green-300 bg-green-50' 
+                        : isDarkMode ? 'border-gray-600' : 'border-gray-300'}`}
+                  autoComplete="off"
+                  autoFocus
+                />
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex">
+                  {apiKeyInput && (
+                    <span className="mr-2">
+                      {apiKeyInput.startsWith('sk-or-') 
+                        ? <Check className="text-green-500" size={18} />
+                        : apiKeyInput.length > 0 && <AlertCircle className="text-red-500" size={18} />}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className={isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}
+                  >
+                    {showApiKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
               
               {apiKeyError && (
                 <p className="text-xs text-red-500 mt-1">{apiKeyError}</p>
