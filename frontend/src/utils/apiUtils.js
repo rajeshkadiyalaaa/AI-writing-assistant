@@ -18,7 +18,7 @@ export const testApiKey = async (apiKey) => {
   }
   
   // Test the API key
-  const response = await api.post('/api/verify-model', {
+  const response = await api.verifyModel({
     model: 'nvidia/llama-3.1-nemotron-nano-8b-v1:free', // Use a free model for testing
     apiKey
   });
@@ -37,7 +37,7 @@ export const updateApiKey = async (apiKey, rememberKey) => {
     throw new Error('API key cannot be empty');
   }
   
-  const response = await api.post('/api/settings/apikey', {
+  const response = await api.settingsApikey({
     apiKey
   });
   
@@ -62,7 +62,7 @@ export const fetchApiKeyInfo = async () => {
   
   if (storedKey) {
     // If we have a stored key, use it to get the masked version
-    const response = await api.post('/api/settings/apikey', {
+    const response = await api.settingsApikey({
       apiKey: storedKey
     });
     
@@ -72,7 +72,7 @@ export const fetchApiKeyInfo = async () => {
     };
   } else {
     // Otherwise, just check if the server has an API key set
-    const response = await api.get('/api/settings/apikey');
+    const response = await api.settingsApikey();
     return {
       maskedKey: response.data.maskedKey,
       isSet: response.data.isSet
@@ -90,7 +90,7 @@ export const verifyCustomModel = async (modelId) => {
     throw new Error('Model ID cannot be empty');
   }
   
-  const response = await api.post('/api/verify-model', {
+  const response = await api.verifyModel({
     model: modelId
   });
   
@@ -107,7 +107,7 @@ export const verifyCustomModel = async (modelId) => {
  * @returns {Promise<Object>} A promise that resolves to the generated response
  */
 export const generateAIResponse = async (messages, model, documentType, tone, temperature) => {
-  const response = await api.post('/api/generate', {
+  const response = await api.generate({
     messages,
     model,
     documentType,
@@ -126,7 +126,7 @@ export const generateAIResponse = async (messages, model, documentType, tone, te
  * @returns {Promise<Object>} A promise that resolves to the generated suggestions
  */
 export const generateSuggestions = async (content, documentType, tone) => {
-  const response = await api.post('/api/suggestions', {
+  const response = await api.suggestions({
     content,
     documentType,
     tone
@@ -144,7 +144,7 @@ export const generateSuggestions = async (content, documentType, tone) => {
  * @returns {Promise<Object>} A promise that resolves to the improved content
  */
 export const improveWriting = async (content, targetAudience, readingLevel, additionalInstructions) => {
-  const response = await api.post('/api/improve', {
+  const response = await api.improve({
     content,
     targetAudience,
     readingLevel,
