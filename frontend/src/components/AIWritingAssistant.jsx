@@ -736,25 +736,25 @@ export default function AIWritingAssistant() {
         }).catch(err => {
           console.error('Error generating PDF:', err);
           // Fallback to basic HTML for demo purposes if library fails to load
-          const htmlContent = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <title>${documentTitle}</title>
-              <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }
-                h1 { color: #333; }
-                pre { white-space: pre-wrap; }
-              </style>
-            </head>
-            <body>
-              <h1>${documentTitle}</h1>
-              <pre>${content}</pre>
-            </body>
-            </html>
-          `;
-          
-          const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>${documentTitle}</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }
+            h1 { color: #333; }
+            pre { white-space: pre-wrap; }
+          </style>
+        </head>
+        <body>
+          <h1>${documentTitle}</h1>
+          <pre>${content}</pre>
+        </body>
+        </html>
+      `;
+      
+      const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
           downloadFile(htmlBlob, filename + '.html');
           
           showNotification('PDF generation failed. Using HTML format instead.', 'error');

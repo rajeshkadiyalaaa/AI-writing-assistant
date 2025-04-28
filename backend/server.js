@@ -5,6 +5,7 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const dotenv = require('dotenv');
 const fetch = require('node-fetch');
+const fs = require('fs');
 
 // Load environment variables from .env file
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -48,15 +49,83 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 // Serve static files from the React app in production
 if (process.env.NODE_ENV === 'production') {
   const frontendBuildPath = path.join(__dirname, '../frontend/build');
-  console.log('Serving static files from:', frontendBuildPath);
-  app.use(express.static(frontendBuildPath));
+  console.log('Checking frontend build path:', frontendBuildPath);
   
-  // Always return the main index.html for any route not handled by API or static files
-  app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api')) {
-      res.sendFile(path.join(frontendBuildPath, 'index.html'));
-    }
-  });
+  // Check if the frontend build directory exists
+  if (fs.existsSync(frontendBuildPath)) {
+    console.log('Frontend build directory found, serving static files');
+    app.use(express.static(frontendBuildPath));
+    
+    // Always return the main index.html for any route not handled by API or static files
+    app.get('*', (req, res) => {
+      if (!req.path.startsWith('/api')) {
+        res.sendFile(path.join(frontendBuildPath, 'index.html'));
+      }
+    });
+  } else {
+    console.warn('WARNING: Frontend build directory not found at', frontendBuildPath);
+    console.warn('Static file serving is disabled. Only API routes will be available.');
+    
+    // Set up a basic HTML response for the root route
+    app.get('/', (req, res) => {
+      res.send(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>AI Writing Assistant API</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; }
+            h1 { color: #333; }
+            .card { background: #f8f9fa; border-radius: 5px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            code { background: #eaeaea; padding: 2px 4px; border-radius: 3px; font-family: monospace; }
+            .endpoint { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+            .method { display: inline-block; padding: 3px 8px; border-radius: 3px; font-size: 0.8em; margin-right: 8px; }
+            .get { background: #e7f5ff; color: #0c7cd5; }
+            .post { background: #e3fcef; color: #00a65a; }
+          </style>
+        </head>
+        <body>
+          <h1>AI Writing Assistant API</h1>
+          <div class="card">
+            <p>The backend API is running successfully, but the frontend build files were not found.</p>
+            <p>This is likely because you're running in API-only mode or the frontend wasn't built during deployment.</p>
+            <p>You can still use all API endpoints via direct HTTP requests.</p>
+          </div>
+          
+          <h2>Available API Endpoints</h2>
+          <div class="card">
+            <div class="endpoint">
+              <span class="method get">GET</span>
+              <code>/api/health</code> - Health check endpoint
+            </div>
+            <div class="endpoint">
+              <span class="method get">GET</span>
+              <code>/api/models</code> - Get available AI models
+            </div>
+            <div class="endpoint">
+              <span class="method post">POST</span>
+              <code>/api/chat</code> - Chat with AI
+            </div>
+            <div class="endpoint">
+              <span class="method post">POST</span>
+              <code>/api/generate</code> - Generate AI responses
+            </div>
+            <div class="endpoint">
+              <span class="method post">POST</span>
+              <code>/api/suggestions</code> - Get writing suggestions
+            </div>
+            <div class="endpoint">
+              <span class="method post">POST</span>
+              <code>/api/improve</code> - Improve readability
+            </div>
+          </div>
+        </body>
+        </html>
+      `);
+    });
+  }
 }
 
 // API endpoint to get available models

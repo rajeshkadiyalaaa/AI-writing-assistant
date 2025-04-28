@@ -2,7 +2,7 @@ services:
   - type: web
     name: ai-writing-assistant
     env: node
-    buildCommand: chmod +x ./render-build.sh && ./render-build.sh
+    buildCommand: chmod +x ./render-build.sh && ./render-build.sh && node build-frontend.js
     startCommand: cd backend && node run.js
     plan: free
     healthCheckPath: /api/health
