@@ -1,5 +1,7 @@
 {
   "version": 2,
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": "frontend/build",
   "builds": [
     {
       "src": "backend/server.js",
@@ -21,6 +23,10 @@
     {
       "src": "/static/(.*)",
       "dest": "frontend/build/static/$1"
+    },
+    {
+      "src": "/assets/(.*)",
+      "dest": "frontend/build/assets/$1"
     },
     {
       "src": "/(.+\\.[a-zA-Z0-9]{2,}$)",
