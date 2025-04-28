@@ -8,10 +8,24 @@ import sys
 import statistics
 from typing import Dict, List, Any, Optional, Union, Tuple
 import nltk
+
+# Set up NLTK data path - look in the project's nltk_data directory
+nltk_data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'nltk_data')
+if os.path.exists(nltk_data_dir):
+    nltk.data.path.append(nltk_data_dir)
+    print(f"Added NLTK data path: {nltk_data_dir}", file=sys.stderr)
+
+# Also try to load in standard locations
 try:
     nltk.data.find('tokenizers/punkt')
+    print("Found NLTK punkt tokenizer", file=sys.stderr)
 except LookupError:
-    nltk.download('punkt', quiet=True)
+    print("NLTK punkt not found, attempting to download...", file=sys.stderr)
+    try:
+        nltk.download('punkt', quiet=True, download_dir=nltk_data_dir)
+        print(f"Downloaded NLTK punkt to {nltk_data_dir}", file=sys.stderr)
+    except Exception as e:
+        print(f"Error downloading NLTK punkt: {str(e)}", file=sys.stderr)
 
 """
 Shared utility functions for AI script operations

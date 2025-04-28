@@ -3,7 +3,8 @@ services:
   - type: web
     name: ai-writing-assistant-api
     env: node
-    buildCommand: npm install && cd backend && npm install && pip install -r ../requirements.txt
+    runtime: python3
+    buildCommand: npm install && cd backend && npm install && pip install -r ../requirements.txt && python ../backend/scripts/setup_nltk.py
     startCommand: cd backend && npm start
     envVars:
       - key: NODE_ENV
@@ -22,6 +23,8 @@ services:
         value: INFO
       - key: DEBUG
         value: false
+      - key: NLTK_DATA
+        value: /opt/render/project/src/nltk_data
       - key: FRONTEND_URL
         fromService:
           name: ai-writing-assistant-frontend

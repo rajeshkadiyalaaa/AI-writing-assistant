@@ -27,6 +27,11 @@ cd frontend && npm install && cd ..
 echo "Installing Python dependencies..."
 pip install -r requirements.txt || pip3 install -r requirements.txt
 
+# Set up NLTK data
+echo "Setting up NLTK data..."
+python backend/scripts/setup_nltk.py || python3 backend/scripts/setup_nltk.py
+echo "NLTK setup complete"
+
 # Build frontend
 echo "Building frontend..."
 npm run build
