@@ -23,7 +23,7 @@ services:
         fromService:
           name: ai-writing-assistant
           type: web
-          property: url
+          property: host
       - key: PYTHON_VERSION
         value: 3.9.13
     autoDeploy: true 

@@ -15,11 +15,30 @@ console.log('API Key loaded:', process.env.OPENROUTER_API_KEY ? 'Yes (key found)
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Helper function to generate full allowed origins for CORS
+const getAllowedOrigins = () => {
+  const origins = ['http://localhost:3000']; // Always allow localhost for development
+  
+  if (process.env.NODE_ENV === 'production') {
+    // Add production origins
+    if (process.env.FRONTEND_URL) {
+      // Add both http and https versions of the FRONTEND_URL
+      origins.push(`http://${process.env.FRONTEND_URL}`);
+      origins.push(`https://${process.env.FRONTEND_URL}`);
+    }
+    
+    // Add common Render domains
+    origins.push('https://ai-writing-assistant.onrender.com');
+    // Add pattern for Render preview URLs
+    origins.push(/\.onrender\.com$/);
+  }
+  
+  return origins;
+};
+
 // Middleware
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.FRONTEND_URL, 'https://ai-writing-assistant.onrender.com'].filter(Boolean)
-    : 'http://localhost:3000',
+  origin: getAllowedOrigins(),
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true
 }));

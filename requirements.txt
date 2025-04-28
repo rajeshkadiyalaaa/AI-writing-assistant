@@ -1,24 +1,32 @@
 # Core dependencies
-streamlit>=1.22.0
-openai>=1.0.0
 python-dotenv>=1.0.0
-python-decouple>=3.8
 requests>=2.28.2
+
+# Optional - only used if present in the codebase
+openai>=1.0.0
+python-decouple>=3.8
 aiohttp>=3.8.4
 
 # Database
 sqlalchemy>=2.0.0
-alembic>=1.10.0
-# sqlite3 is part of the Python standard library, no need to install via pip
+
+# Required for text processing
+nltk>=3.8.1
+
+# Only include these if they're actually used in your scripts
+# pdfkit>=1.0.0
+# python-docx>=0.8.11
+markdown>=3.4.3
+
+# Additional dependencies that might be needed
+numpy>=1.24.0
+scipy>=1.10.0
 
 # UI and formatting
 # streamlit-ace>=0.1.1  # Removed since it's causing issues
-pdfkit>=1.0.0
-python-docx>=0.8.11
-markdown>=3.4.3
+# python-docx>=0.8.11
 
 # Text processing
-nltk>=3.8.1
 language-tool-python>=2.7.1
 
 # Testing and development
