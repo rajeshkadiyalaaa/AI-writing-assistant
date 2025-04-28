@@ -31,8 +31,11 @@ except Exception as e:
 # Create a safer version of nltk functions that don't crash on missing resources
 def safe_tokenize(text):
     """Tokenize text safely, with fallbacks if NLTK resources are missing"""
+    if not text:
+        return []
+        
     try:
-        # Try using the punkt tokenizer
+        # Try using the punkt tokenizer - this is the most reliable method
         return nltk.sent_tokenize(text)
     except LookupError as e:
         print(f"NLTK tokenizer error: {str(e)}", file=sys.stderr)
@@ -44,12 +47,28 @@ def safe_tokenize(text):
             return nltk.sent_tokenize(text)
         except Exception as e2:
             print(f"Failed to download punkt tokenizer: {str(e2)}", file=sys.stderr)
-            # Ultimate fallback - use simple regex
-            print("Using regex fallback for tokenization", file=sys.stderr)
-            sentences = re.split(r'(?<=[.!?])\s+', text)
-            return [s for s in sentences if s.strip()]
+    except Exception as e:
+        print(f"Unexpected error in tokenization: {str(e)}", file=sys.stderr)
+    
+    # If we get here, try the regex fallback
+    print("Using regex fallback for tokenization", file=sys.stderr)
+    try:
+        # More sophisticated regex for sentence splitting
+        sentences = re.split(r'(?<=[.!?])\s+(?=[A-Z])', text)
+        if len(sentences) > 1:
+            return [s.strip() for s in sentences if s.strip()]
+        
+        # If that didn't work well, try a simpler approach
+        sentences = re.split(r'(?<=[.!?])\s+', text)
+        return [s.strip() for s in sentences if s.strip()]
+    except Exception as e:
+        print(f"Regex tokenization failed: {str(e)}", file=sys.stderr)
+        
+        # Ultimate fallback - just split by periods
+        sentences = text.split('.')
+        return [s.strip() + '.' for s in sentences if s.strip()]
 
-# Verify and attempt to fix punkt_tab
+# Verify punkt tokenizer
 try:
     nltk.data.find('tokenizers/punkt')
     print("Found NLTK punkt tokenizer", file=sys.stderr)
@@ -61,32 +80,8 @@ except LookupError:
     except Exception as e:
         print(f"Error downloading NLTK punkt: {str(e)}", file=sys.stderr)
 
-# Set up punkt_tab fallback
-try:
-    nltk.data.find('tokenizers/punkt_tab')
-    print("Found NLTK punkt_tab tokenizer", file=sys.stderr)
-except LookupError:
-    print("punkt_tab not found, creating fallback structure...", file=sys.stderr)
-    try:
-        # Get the nltk data path
-        for path in nltk.data.path:
-            tokenizers_dir = os.path.join(path, 'tokenizers')
-            if os.path.exists(tokenizers_dir):
-                punkt_dir = os.path.join(tokenizers_dir, 'punkt')
-                if os.path.exists(punkt_dir):
-                    # Create punkt_tab structure
-                    punkt_tab_dir = os.path.join(tokenizers_dir, 'punkt_tab')
-                    english_dir = os.path.join(punkt_tab_dir, 'english')
-                    os.makedirs(english_dir, exist_ok=True)
-                    
-                    # Create a placeholder file
-                    with open(os.path.join(english_dir, 'punkt_tab.pickle'), 'w') as f:
-                        f.write("# Placeholder for punkt_tab")
-                    
-                    print(f"Created punkt_tab fallback at {punkt_tab_dir}", file=sys.stderr)
-                    break
-    except Exception as e:
-        print(f"Error creating punkt_tab fallback: {str(e)}", file=sys.stderr)
+# Remove automatic punkt_tab checks which cause import errors
+# The safe_tokenize function will handle any tokenization needs safely
 
 """
 Shared utility functions for AI script operations

@@ -42,6 +42,7 @@ def setup_nltk():
     # Special handling for punkt_tab
     # Create the expected directory structure
     tokenizers_dir = os.path.join(nltk_data_dir, 'tokenizers')
+    punkt_dir = os.path.join(tokenizers_dir, 'punkt')
     punkt_tab_dir = os.path.join(tokenizers_dir, 'punkt_tab')
     english_dir = os.path.join(punkt_tab_dir, 'english')
     
@@ -49,7 +50,6 @@ def setup_nltk():
     os.makedirs(english_dir, exist_ok=True)
     
     # Check if punkt tokenizer was downloaded and copy/link files as needed
-    punkt_dir = os.path.join(tokenizers_dir, 'punkt')
     if os.path.exists(punkt_dir):
         print(f"Setting up punkt_tab from punkt data...")
         
@@ -84,6 +84,35 @@ def setup_nltk():
                 print(f"Created fallback empty punkt_tab pickle at {punkt_tab_path}")
             except Exception as e2:
                 print(f"Error creating fallback punkt_tab pickle: {str(e2)}")
+        
+        # Copy necessary tab files from punkt/english to punkt_tab/english
+        punkt_english_dir = os.path.join(punkt_dir, 'english')
+        if os.path.exists(punkt_english_dir):
+            for tab_file in ['collocations.tab']:
+                src_path = os.path.join(punkt_english_dir, tab_file)
+                if os.path.exists(src_path):
+                    dst_path = os.path.join(english_dir, tab_file)
+                    try:
+                        shutil.copy2(src_path, dst_path)
+                        print(f"Copied {src_path} to {dst_path}")
+                    except Exception as e:
+                        print(f"Error copying {tab_file}: {str(e)}")
+                        # If copy fails, create an empty tab file
+                        try:
+                            with open(dst_path, 'w') as f:
+                                f.write("# Empty collocations file created as fallback\n")
+                            print(f"Created empty {tab_file} at {dst_path}")
+                        except Exception as e2:
+                            print(f"Error creating empty {tab_file}: {str(e2)}")
+                else:
+                    # Create an empty tab file if source doesn't exist
+                    dst_path = os.path.join(english_dir, tab_file)
+                    try:
+                        with open(dst_path, 'w') as f:
+                            f.write("# Empty collocations file created as fallback\n")
+                        print(f"Created empty {tab_file} at {dst_path}")
+                    except Exception as e:
+                        print(f"Error creating empty {tab_file}: {str(e)}")
             
         # Copy PY files from punkt to punkt_tab if they exist
         for filename in ['punkt.py', 'PunktLanguageVars.py', 'PunktParameters.py', 'PunktSentenceTokenizer.py', 'PunktTrainer.py']:
