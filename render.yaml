@@ -3,7 +3,7 @@ services:
     name: ai-writing-assistant
     env: node
     buildCommand: chmod +x ./render-build.sh && ./render-build.sh
-    startCommand: npm start
+    startCommand: NODE_ENV=production node backend/server.js
     envVars:
       - key: NODE_ENV
         value: production

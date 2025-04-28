@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "AI Writing Assistant with React frontend and Node.js backend",
   "scripts": {
-    "start": "cross-env NODE_ENV=production node backend/server.js",
+    "start": "node backend/server.js",
     "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
     "backend": "cd backend && npm run start",
     "frontend": "cd frontend && npm start",
