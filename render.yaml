@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: ai-writing-assistant
+    env: node
+    buildCommand: chmod +x ./render-build.sh && ./render-build.sh
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: DEBUG
+        value: false
+      - key: LOG_LEVEL
+        value: INFO
+      - key: DEFAULT_MODEL
+        value: nvidia/llama-3.1-nemotron-nano-8b-v1:free
+      - key: TEMPERATURE
+        value: 0.7
+      - key: MAX_TOKENS
+        value: 1000
+      - key: FRONTEND_URL
+        fromService:
+          name: ai-writing-assistant
+          type: web
+          property: url
+      - key: PYTHON_VERSION
+        value: 3.9.13
+    autoDeploy: true 
