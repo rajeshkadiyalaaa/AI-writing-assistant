@@ -5,7 +5,6 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const dotenv = require('dotenv');
 const fetch = require('node-fetch');
-const fs = require('fs');
 
 // Load environment variables from .env file
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -16,116 +15,28 @@ console.log('API Key loaded:', process.env.OPENROUTER_API_KEY ? 'Yes (key found)
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Helper function to generate full allowed origins for CORS
-const getAllowedOrigins = () => {
-  const origins = ['http://localhost:3000']; // Always allow localhost for development
-  
-  if (process.env.NODE_ENV === 'production') {
-    // Add production origins
-    if (process.env.FRONTEND_URL) {
-      // Add both http and https versions of the FRONTEND_URL
-      origins.push(`http://${process.env.FRONTEND_URL}`);
-      origins.push(`https://${process.env.FRONTEND_URL}`);
-    }
-    
-    // Add common Render domains
-    origins.push('https://ai-writing-assistant.onrender.com');
-    // Add pattern for Render preview URLs
-    origins.push(/\.onrender\.com$/);
-  }
-  
-  return origins;
-};
-
 // Middleware
 app.use(cors({
-  origin: getAllowedOrigins(),
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['http://localhost:3000', process.env.FRONTEND_URL].filter(Boolean)
+    : 'http://localhost:3000',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true
 }));
-app.use(bodyParser.json({ limit: '10mb' }));
-app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
+app.use(bodyParser.json());
 
 // Serve static files from the React app in production
 if (process.env.NODE_ENV === 'production') {
   const frontendBuildPath = path.join(__dirname, '../frontend/build');
-  console.log('Checking frontend build path:', frontendBuildPath);
+  console.log('Serving static files from:', frontendBuildPath);
+  app.use(express.static(frontendBuildPath));
   
-  // Check if the frontend build directory exists
-  if (fs.existsSync(frontendBuildPath)) {
-    console.log('Frontend build directory found, serving static files');
-    app.use(express.static(frontendBuildPath));
-    
-    // Always return the main index.html for any route not handled by API or static files
-    app.get('*', (req, res) => {
-      if (!req.path.startsWith('/api')) {
-        res.sendFile(path.join(frontendBuildPath, 'index.html'));
-      }
-    });
-  } else {
-    console.warn('WARNING: Frontend build directory not found at', frontendBuildPath);
-    console.warn('Static file serving is disabled. Only API routes will be available.');
-    
-    // Set up a basic HTML response for the root route
-    app.get('/', (req, res) => {
-      res.send(`
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>AI Writing Assistant API</title>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; }
-            h1 { color: #333; }
-            .card { background: #f8f9fa; border-radius: 5px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-            code { background: #eaeaea; padding: 2px 4px; border-radius: 3px; font-family: monospace; }
-            .endpoint { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
-            .method { display: inline-block; padding: 3px 8px; border-radius: 3px; font-size: 0.8em; margin-right: 8px; }
-            .get { background: #e7f5ff; color: #0c7cd5; }
-            .post { background: #e3fcef; color: #00a65a; }
-          </style>
-        </head>
-        <body>
-          <h1>AI Writing Assistant API</h1>
-          <div class="card">
-            <p>The backend API is running successfully, but the frontend build files were not found.</p>
-            <p>This is likely because you're running in API-only mode or the frontend wasn't built during deployment.</p>
-            <p>You can still use all API endpoints via direct HTTP requests.</p>
-          </div>
-          
-          <h2>Available API Endpoints</h2>
-          <div class="card">
-            <div class="endpoint">
-              <span class="method get">GET</span>
-              <code>/api/health</code> - Health check endpoint
-            </div>
-            <div class="endpoint">
-              <span class="method get">GET</span>
-              <code>/api/models</code> - Get available AI models
-            </div>
-            <div class="endpoint">
-              <span class="method post">POST</span>
-              <code>/api/chat</code> - Chat with AI
-            </div>
-            <div class="endpoint">
-              <span class="method post">POST</span>
-              <code>/api/generate</code> - Generate AI responses
-            </div>
-            <div class="endpoint">
-              <span class="method post">POST</span>
-              <code>/api/suggestions</code> - Get writing suggestions
-            </div>
-            <div class="endpoint">
-              <span class="method post">POST</span>
-              <code>/api/improve</code> - Improve readability
-            </div>
-          </div>
-        </body>
-        </html>
-      `);
-    });
-  }
+  // Always return the main index.html for any route not handled by API or static files
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(frontendBuildPath, 'index.html'));
+    }
+  });
 }
 
 // API endpoint to get available models
@@ -558,23 +469,12 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     time: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-    version: '1.0.0',
-    port: PORT
+    version: '1.0.0'
   });
 });
 
-// Log important information before starting
-console.log(`Starting server with the following configuration:
-- Port: ${PORT}
-- Environment: ${process.env.NODE_ENV || 'development'}
-- API Key present: ${process.env.OPENROUTER_API_KEY ? 'Yes' : 'No'}
-- Debug: ${process.env.DEBUG || 'False'}
-- Log Level: ${process.env.LOG_LEVEL || 'INFO'}
-- Default Model: ${process.env.DEFAULT_MODEL || 'default model not set'}`);
-
-// Start server - bind to all interfaces (0.0.0.0) for cloud hosting compatibility
-app.listen(PORT, '0.0.0.0', () => {
+// Start server
+app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Mode: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Server is ready to accept connections`);
 }); 

@@ -3,15 +3,11 @@
   "version": "1.0.0",
   "description": "AI Writing Assistant with React frontend and Node.js backend",
   "scripts": {
-    "start": "cd backend && node run.js",
-    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
-    "backend": "cd backend && npm run dev",
+    "start": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "backend": "cd backend && npm run start",
     "frontend": "cd frontend && npm start",
     "install-all": "npm install && cd frontend && npm install && cd ../backend && npm install",
-    "build": "cd frontend && npm run build",
-    "lint": "cd frontend && npm run lint && cd ../backend && npm run lint",
-    "test": "cd frontend && npm test",
-    "postinstall": "cd backend && npm install && cd ../frontend && npm install"
+    "build": "cd frontend && npm run build"
   },
   "keywords": [
     "ai",
@@ -22,18 +18,7 @@
   ],
   "author": "",
   "license": "MIT",
-  "dependencies": {
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
-    "body-parser": "^1.20.2",
-    "dotenv": "^16.3.1",
-    "node-fetch": "^2.6.7"
-  },
   "devDependencies": {
     "concurrently": "^8.2.2"
-  },
-  "engines": {
-    "node": ">=14.x",
-    "npm": ">=6.x"
   }
 } 

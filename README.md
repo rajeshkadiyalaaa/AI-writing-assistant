@@ -52,30 +52,7 @@ The system employs advanced prompt engineering to extract optimal performance fr
    npm start
    ```
 
-### Render Deployment (Recommended)
-
-This application comes with pre-configured files for easy deployment on Render:
-
-1. **Create a Render account**:
-   - Go to [Render](https://render.com) and sign up or log in
-
-2. **Create a new Web Service**:
-   - In the Render dashboard, click "New" → "Blueprint"
-   - Connect your GitHub repository
-   - Select the repository with this project
-   - Render will automatically detect the configuration in `render.yaml`
-
-3. **Configure environment variables**:
-   - During setup, provide your OpenRouter API key in the environment variables
-   - All other environment variables are pre-configured in the `render.yaml` file
-
-4. **Deploy**:
-   - Click "Apply" and Render will build and deploy your application
-   - Your AI Writing Assistant will be available at a render.com URL
-
-The included `render.yaml` file handles all the configuration, ensuring that both the Node.js backend and Python scripts run correctly.
-
-### Other Hosting Options
+### Hosting Options
 
 You can deploy this application on any standard hosting platform:
 
