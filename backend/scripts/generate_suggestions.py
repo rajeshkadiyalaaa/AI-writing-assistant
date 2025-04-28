@@ -5,12 +5,23 @@ import os
 import requests
 import re
 import time
+import random
+import traceback
+import nltk
 from dotenv import load_dotenv
 from utils import (
     enrich_ai_response,
     parse_structured_response,
     analyze_response_statistics,
-    evaluate_response_quality
+    evaluate_response_quality,
+    safe_tokenize,
+    estimate_tokens,
+    extract_key_topics,
+    detect_content_type,
+    parse_response,
+    extract_json,
+    format_traceback,
+    is_valid_json
 )
 
 # Load environment variables with explicit path
@@ -18,90 +29,131 @@ dotenv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.pa
 print(f"Debug - Looking for .env at: {dotenv_path}", file=sys.stderr)
 load_dotenv(dotenv_path=dotenv_path)
 
-def generate_suggestions(data):
+def generate_suggestions(input_data, num_retries=3):
     """
-    Generate writing suggestions based on the provided content
+    Generate writing suggestions based on content, document type, tone, and length.
+    
+    Args:
+        input_data: Dictionary containing the input data
+        num_retries: Number of retries for API calls
+        
+    Returns:
+        Dictionary containing the generated suggestions
     """
-    api_key = os.getenv('OPENROUTER_API_KEY')
-    
-    if not api_key:
-        print(f"Error: OpenRouter API key not found in environment variables", file=sys.stderr)
-        return json.dumps({
-            "error": "OpenRouter API key not found in environment variables"
-        })
-    
-    # Extract parameters from the input data
-    content = data.get('content', '')
-    document_type = data.get('documentType', 'general')
-    tone = data.get('tone', 'professional')
-    model = data.get('model', os.getenv('DEFAULT_MODEL', 'nvidia/llama-3.1-nemotron-nano-8b-v1:free'))
-    
-    print(f"Debug - Processing suggestion request with model: {model}", file=sys.stderr)
-    
-    if not content:
-        return json.dumps({
-            "error": "No content provided for generating suggestions"
-        })
-    
-    # Check cache and handle chunking for long content
-    processed_chunk = process_with_chunking_and_caching(content, document_type, tone, model)
-    if processed_chunk and processed_chunk != content:
-        # If we got a chunk back instead of full content, use it
-        print(f"Debug - Using processed chunk: {len(processed_chunk)} chars", file=sys.stderr)
-        content = processed_chunk
-        # Flag that we're processing a chunk, not the full content
-        is_chunk = True
-    else:
-        is_chunk = False
-    
-    # Determine appropriate suggestion depth based on content length
-    content_length = len(content)
-    suggestion_depth = "detailed"
-    if content_length < 200:
-        suggestion_depth = "basic"
-    elif content_length > 2000:
-        suggestion_depth = "comprehensive"
-    
-    # Select optimal model configuration based on content type and length
-    temperature = 0.5  # Default temperature
-    top_p = 0.9        # Default top_p
-    frequency_penalty = 0.3
-    presence_penalty = 0.3
-    
-    # Optimize parameters based on document type
-    if document_type in ['academic', 'technical', 'scientific']:
-        # More precise, factual output for academic/technical content
-        temperature = 0.3
-        top_p = 0.85
-        frequency_penalty = 0.2
-    elif document_type in ['creative', 'narrative', 'marketing']:
-        # More creative output for creative/marketing content
+    try:
+        # Get API keys
+        openai_api_key = os.environ.get("OPENAI_API_KEY", "")
+        openrouter_api_key = os.environ.get("OPENROUTER_API_KEY", "")
+        
+        if not openrouter_api_key and not openai_api_key:
+            return {"error": "Missing API keys. Please set OPENROUTER_API_KEY or OPENAI_API_KEY in your environment variables."}
+        
+        # Use OpenRouter API key if available, otherwise fallback to OpenAI
+        api_key = openrouter_api_key if openrouter_api_key else openai_api_key
+        
+        # Extract parameters from input data
+        content = input_data.get("content", "").strip()
+        if not content:
+            return {"error": "No content provided"}
+        
+        document_type = input_data.get("document_type", "")
+        tone = input_data.get("tone", "")
+        model = input_data.get("model", "anthropic/claude-3-opus:beta")
+        
+        # Set temperature based on model (use lower temperature for more deterministic results)
         temperature = 0.7
-        top_p = 0.95
-        frequency_penalty = 0.4
-        presence_penalty = 0.4
-    elif document_type in ['email', 'business', 'formal']:
-        # Balanced output for business content
-        temperature = 0.5
-        top_p = 0.9
+        
+        # Print debug information
+        print(f"Content length: {len(content)} characters", file=sys.stderr)
+        print(f"Estimated tokens: {estimate_tokens(content)}", file=sys.stderr)
+        print(f"Document type: {document_type}", file=sys.stderr)
+        print(f"Tone: {tone}", file=sys.stderr)
+        print(f"Model: {model}", file=sys.stderr)
+        
+        # Detect content type if not provided
+        if not document_type:
+            document_type = detect_content_type(content)
+            print(f"Detected document type: {document_type}", file=sys.stderr)
+        
+        # Extract key topics for better prompting
+        try:
+            topics = extract_key_topics(content)
+            topics_text = ", ".join(topics[:5]) if topics else "general topics"
+            print(f"Key topics: {topics_text}", file=sys.stderr)
+        except Exception as e:
+            print(f"Error extracting topics: {str(e)}", file=sys.stderr)
+            topics_text = "general topics"
+        
+        # Use safe tokenization to determine length statistics
+        try:
+            sentences = safe_tokenize(content)
+            num_sentences = len(sentences)
+            avg_sentence_length = sum(len(s.split()) for s in sentences) / max(1, num_sentences)
+            print(f"Number of sentences: {num_sentences}", file=sys.stderr)
+            print(f"Average sentence length: {avg_sentence_length:.1f} words", file=sys.stderr)
+        except Exception as e:
+            print(f"Error analyzing content: {str(e)}", file=sys.stderr)
+            num_sentences = 1
+            avg_sentence_length = 20
+        
+        # Check cache and handle chunking for long content
+        processed_chunk = process_with_chunking_and_caching(content, document_type, tone, model)
+        if processed_chunk and processed_chunk != content:
+            # If we got a chunk back instead of full content, use it
+            print(f"Debug - Using processed chunk: {len(processed_chunk)} chars", file=sys.stderr)
+            content = processed_chunk
+            # Flag that we're processing a chunk, not the full content
+            is_chunk = True
+        else:
+            is_chunk = False
+        
+        # Determine appropriate suggestion depth based on content length
+        content_length = len(content)
+        suggestion_depth = "detailed"
+        if content_length < 200:
+            suggestion_depth = "basic"
+        elif content_length > 2000:
+            suggestion_depth = "comprehensive"
+        
+        # Select optimal model configuration based on content type and length
+        top_p = 0.9        # Default top_p
         frequency_penalty = 0.3
-    
-    # Further adjust for content length
-    if content_length > 3000:
-        # Slightly more deterministic for longer content
-        temperature = max(0.2, temperature - 0.1)
-    
-    # Adjust max tokens based on content length
-    max_tokens = 2000  # Default
-    if content_length > 5000:
-        max_tokens = 3000
-    elif content_length < 500:
-        max_tokens = 1500
-    
-    print(f"Debug - Optimized parameters: temp={temperature}, top_p={top_p}, max_tokens={max_tokens}", file=sys.stderr)
-    
-    # Prepare the enhanced system message for suggestions
-    system_message = f"""You are an expert writing analyst and editor specializing in {document_type} content with a {tone} tone.
+        presence_penalty = 0.3
+        
+        # Optimize parameters based on document type
+        if document_type in ['academic', 'technical', 'scientific']:
+            # More precise, factual output for academic/technical content
+            temperature = 0.3
+            top_p = 0.85
+            frequency_penalty = 0.2
+        elif document_type in ['creative', 'narrative', 'marketing']:
+            # More creative output for creative/marketing content
+            temperature = 0.7
+            top_p = 0.95
+            frequency_penalty = 0.4
+            presence_penalty = 0.4
+        elif document_type in ['email', 'business', 'formal']:
+            # Balanced output for business content
+            temperature = 0.5
+            top_p = 0.9
+            frequency_penalty = 0.3
+        
+        # Further adjust for content length
+        if content_length > 3000:
+            # Slightly more deterministic for longer content
+            temperature = max(0.2, temperature - 0.1)
+        
+        # Adjust max tokens based on content length
+        max_tokens = 2000  # Default
+        if content_length > 5000:
+            max_tokens = 3000
+        elif content_length < 500:
+            max_tokens = 1500
+        
+        print(f"Debug - Optimized parameters: temp={temperature}, top_p={top_p}, max_tokens={max_tokens}", file=sys.stderr)
+        
+        # Prepare the enhanced system message for suggestions
+        system_message = f"""You are an expert writing analyst and editor specializing in {document_type} content with a {tone} tone.
 
 Your task is to analyze the provided text and generate specific, actionable suggestions to improve it.
 
@@ -151,63 +203,61 @@ CLARITY:
 2. The paragraph about data collection procedures contains excessive jargon. Consider defining technical terms or replacing them with more accessible alternatives to improve readability.
 """
 
-    # Prepare the request with model-specific adjustments
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://ai-writing-assistant.vercel.app",  # Update with your actual domain
-        "X-Title": "AI Writing Assistant"
-    }
-    
-    print(f"Debug - Using headers: {headers}", file=sys.stderr)
-    
-    messages = [
-        {"role": "system", "content": system_message},
-        {"role": "user", "content": f"Please analyze this {document_type} content and provide specific improvement suggestions:\n\n{content}"}
-    ]
-    
-    # Create model-specific payloads
-    if "nvidia/llama-3.1-nemotron-nano" in model:
-        print(f"Debug - Detected Nvidia Llama model, using optimized parameters", file=sys.stderr)
-        # Optimize for Nvidia Llama models
-        payload = {
-            "model": model,
-            "prompt": f"<|system|>\n{system_message}\n<|user|>\nPlease analyze this {document_type} content and provide specific improvement suggestions:\n\n{content}\n<|assistant|>",
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            "top_p": top_p,
-            "stop": ["<|user|>", "<|system|>"],
-            "frequency_penalty": frequency_penalty,
-            "presence_penalty": presence_penalty
+        # Prepare the request with model-specific adjustments
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://ai-writing-assistant.vercel.app",  # Update with your actual domain
+            "X-Title": "AI Writing Assistant"
         }
-    else:
-        # Standard format for other models
-        payload = {
-            "model": model,
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            "top_p": top_p,
-            "frequency_penalty": frequency_penalty,
-            "presence_penalty": presence_penalty
-        }
-    
-    print(f"Debug - Using model: {model} for suggestions", file=sys.stderr)
-    print(f"Debug - Payload format: {'prompt-based' if 'prompt' in payload else 'messages-based'}", file=sys.stderr)
-    
-    # For nvidia models, use a different endpoint if needed
-    api_endpoint = "https://openrouter.ai/api/v1/chat/completions"
-    if "nvidia/llama-3.1-nemotron-nano" in model:
-        # Check if we need to use a different endpoint for this model
-        # Some providers require model-specific endpoints
-        print(f"Debug - Using standard API endpoint for Nvidia model: {api_endpoint}", file=sys.stderr)
-    
-    try:
+        
+        print(f"Debug - Using headers: {headers}", file=sys.stderr)
+        
+        messages = [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": f"Please analyze this {document_type} content and provide specific improvement suggestions:\n\n{content}"}
+        ]
+        
+        # Create model-specific payloads
+        if "nvidia/llama-3.1-nemotron-nano" in model:
+            print(f"Debug - Detected Nvidia Llama model, using optimized parameters", file=sys.stderr)
+            # Optimize for Nvidia Llama models
+            payload = {
+                "model": model,
+                "prompt": f"<|system|>\n{system_message}\n<|user|>\nPlease analyze this {document_type} content and provide specific improvement suggestions:\n\n{content}\n<|assistant|>",
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "top_p": top_p,
+                "stop": ["<|user|>", "<|system|>"],
+                "frequency_penalty": frequency_penalty,
+                "presence_penalty": presence_penalty
+            }
+        else:
+            # Standard format for other models
+            payload = {
+                "model": model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "top_p": top_p,
+                "frequency_penalty": frequency_penalty,
+                "presence_penalty": presence_penalty
+            }
+        
+        print(f"Debug - Using model: {model} for suggestions", file=sys.stderr)
+        print(f"Debug - Payload format: {'prompt-based' if 'prompt' in payload else 'messages-based'}", file=sys.stderr)
+        
+        # For nvidia models, use a different endpoint if needed
+        api_endpoint = "https://openrouter.ai/api/v1/chat/completions"
+        if "nvidia/llama-3.1-nemotron-nano" in model:
+            # Check if we need to use a different endpoint for this model
+            # Some providers require model-specific endpoints
+            print(f"Debug - Using standard API endpoint for Nvidia model: {api_endpoint}", file=sys.stderr)
+        
         # Implement retry logic
-        max_retries = 3
         retry_delay = 2
         
-        for attempt in range(max_retries):
+        for attempt in range(num_retries):
             try:
                 print(f"Debug - Attempt {attempt+1} to generate suggestions", file=sys.stderr)
                 response = requests.post(
@@ -291,9 +341,9 @@ CLARITY:
                     if is_chunk:
                         result["processing_info"] = {
                             "chunked": True,
-                            "total_length": len(data.get('content', '')),
+                            "total_length": len(input_data.get('content', '')),
                             "processed_length": len(content),
-                            "chunk_ratio": round(len(content) / len(data.get('content', '')) * 100, 1)
+                            "chunk_ratio": round(len(content) / len(input_data.get('content', '')) * 100, 1)
                         }
                     
                     # Cache the result if it's a full document analysis
@@ -309,7 +359,7 @@ CLARITY:
                     return json.dumps(result)
                 # Handle rate limiting
                 elif response.status_code == 429:
-                    if attempt < max_retries - 1:
+                    if attempt < num_retries - 1:
                         print(f"Rate limited. Retrying in {retry_delay} seconds...", file=sys.stderr)
                         time.sleep(retry_delay)
                         retry_delay *= 2  # Exponential backoff
@@ -328,13 +378,13 @@ CLARITY:
                     })
             
             except requests.RequestException as req_err:
-                if attempt < max_retries - 1:
+                if attempt < num_retries - 1:
                     print(f"Request error: {str(req_err)}. Retrying...", file=sys.stderr)
                     time.sleep(retry_delay)
                     retry_delay *= 2
                     continue
                 else:
-                    print(f"Request failed after {max_retries} attempts: {str(req_err)}", file=sys.stderr)
+                    print(f"Request failed after {num_retries} attempts: {str(req_err)}", file=sys.stderr)
                     return json.dumps({"error": f"Request error after retries: {str(req_err)}"})
                 
     except Exception as e:

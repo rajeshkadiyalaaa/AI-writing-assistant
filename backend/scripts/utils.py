@@ -9,23 +9,84 @@ import statistics
 from typing import Dict, List, Any, Optional, Union, Tuple
 import nltk
 
-# Set up NLTK data path - look in the project's nltk_data directory
-nltk_data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'nltk_data')
-if os.path.exists(nltk_data_dir):
-    nltk.data.path.append(nltk_data_dir)
-    print(f"Added NLTK data path: {nltk_data_dir}", file=sys.stderr)
+# Set up NLTK data paths
+try:
+    # First check environment variable
+    nltk_data_env = os.environ.get('NLTK_DATA')
+    if nltk_data_env:
+        print(f"Using NLTK_DATA environment variable: {nltk_data_env}", file=sys.stderr)
+        nltk.data.path.append(nltk_data_env)
+    
+    # Also add the project's nltk_data directory
+    nltk_data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'nltk_data')
+    if os.path.exists(nltk_data_dir):
+        nltk.data.path.append(nltk_data_dir)
+        print(f"Added NLTK data path: {nltk_data_dir}", file=sys.stderr)
+    
+    # Print all paths being searched
+    print(f"NLTK will search in: {nltk.data.path}", file=sys.stderr)
+except Exception as e:
+    print(f"Error setting up NLTK data paths: {str(e)}", file=sys.stderr)
 
-# Also try to load in standard locations
+# Create a safer version of nltk functions that don't crash on missing resources
+def safe_tokenize(text):
+    """Tokenize text safely, with fallbacks if NLTK resources are missing"""
+    try:
+        # Try using the punkt tokenizer
+        return nltk.sent_tokenize(text)
+    except LookupError as e:
+        print(f"NLTK tokenizer error: {str(e)}", file=sys.stderr)
+        try:
+            # Fallback to manual download
+            print("Attempting to download punkt tokenizer...", file=sys.stderr)
+            nltk.download('punkt', quiet=False)
+            # Try again after download
+            return nltk.sent_tokenize(text)
+        except Exception as e2:
+            print(f"Failed to download punkt tokenizer: {str(e2)}", file=sys.stderr)
+            # Ultimate fallback - use simple regex
+            print("Using regex fallback for tokenization", file=sys.stderr)
+            sentences = re.split(r'(?<=[.!?])\s+', text)
+            return [s for s in sentences if s.strip()]
+
+# Verify and attempt to fix punkt_tab
 try:
     nltk.data.find('tokenizers/punkt')
     print("Found NLTK punkt tokenizer", file=sys.stderr)
 except LookupError:
     print("NLTK punkt not found, attempting to download...", file=sys.stderr)
     try:
-        nltk.download('punkt', quiet=True, download_dir=nltk_data_dir)
-        print(f"Downloaded NLTK punkt to {nltk_data_dir}", file=sys.stderr)
+        nltk.download('punkt', quiet=True)
+        print("Downloaded NLTK punkt", file=sys.stderr)
     except Exception as e:
         print(f"Error downloading NLTK punkt: {str(e)}", file=sys.stderr)
+
+# Set up punkt_tab fallback
+try:
+    nltk.data.find('tokenizers/punkt_tab')
+    print("Found NLTK punkt_tab tokenizer", file=sys.stderr)
+except LookupError:
+    print("punkt_tab not found, creating fallback structure...", file=sys.stderr)
+    try:
+        # Get the nltk data path
+        for path in nltk.data.path:
+            tokenizers_dir = os.path.join(path, 'tokenizers')
+            if os.path.exists(tokenizers_dir):
+                punkt_dir = os.path.join(tokenizers_dir, 'punkt')
+                if os.path.exists(punkt_dir):
+                    # Create punkt_tab structure
+                    punkt_tab_dir = os.path.join(tokenizers_dir, 'punkt_tab')
+                    english_dir = os.path.join(punkt_tab_dir, 'english')
+                    os.makedirs(english_dir, exist_ok=True)
+                    
+                    # Create a placeholder file
+                    with open(os.path.join(english_dir, 'punkt_tab.pickle'), 'w') as f:
+                        f.write("# Placeholder for punkt_tab")
+                    
+                    print(f"Created punkt_tab fallback at {punkt_tab_dir}", file=sys.stderr)
+                    break
+    except Exception as e:
+        print(f"Error creating punkt_tab fallback: {str(e)}", file=sys.stderr)
 
 """
 Shared utility functions for AI script operations
