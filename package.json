@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "AI Writing Assistant with React frontend and Node.js backend",
   "scripts": {
-    "start": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "start": "cross-env NODE_ENV=production node backend/server.js",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
     "backend": "cd backend && npm run start",
     "frontend": "cd frontend && npm start",
     "install-all": "npm install && cd frontend && npm install && cd ../backend && npm install",
@@ -18,6 +19,9 @@
   ],
   "author": "",
   "license": "MIT",
+  "dependencies": {
+    "cross-env": "^7.0.3"
+  },
   "devDependencies": {
     "concurrently": "^8.2.2"
   }

@@ -22,9 +22,21 @@ source venv/bin/activate || echo "Virtualenv activation failed, continuing with 
 echo "Installing Python dependencies..."
 python -m pip install --no-cache-dir -r requirements.txt
 
-# Install node dependencies
-echo "Installing Node.js dependencies..."
-npm run install-all
+# Install node dependencies (including dev dependencies for build process)
+echo "Installing root Node.js dependencies..."
+npm install --production=false
+
+# Install frontend dependencies
+echo "Installing frontend dependencies..."
+cd frontend
+npm install --production=false
+cd ..
+
+# Install backend dependencies
+echo "Installing backend dependencies..."
+cd backend
+npm install --production=false
+cd ..
 
 # Build frontend
 echo "Building frontend..."
