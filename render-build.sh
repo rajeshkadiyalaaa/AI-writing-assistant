@@ -13,29 +13,44 @@ echo "Setting up Python environment..."
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 
+# Install root dependencies first
+echo "Installing root dependencies..."
+npm install
+
+# Install backend dependencies directly
+echo "Installing backend dependencies..."
+cd backend
+# Don't use npm init -y as it might overwrite existing package.json
+npm install
+
+# Verify backend packages are installed
+echo "Verifying backend packages..."
+if [ -d "node_modules/express" ]; then
+  echo "Express is installed in backend directory"
+else
+  echo "Express is NOT installed in backend directory, installing again..."
+  npm install express cors body-parser dotenv node-fetch --no-optional
+fi
+
+# List installed packages for debugging
+echo "Installed backend packages:"
+ls -la node_modules | grep express
+ls -la node_modules | grep cors
+ls -la node_modules | grep body-parser
+ls -la node_modules | grep dotenv
+ls -la node_modules | grep node-fetch
+
+# Verify backend directory setup
+echo "Backend directory structure:"
+ls -la
+
+cd ..
+
 # Install frontend dependencies and build
 echo "Installing frontend dependencies..."
 cd frontend
-npm install
+npm install --legacy-peer-deps
 npm run build
-cd ..
-
-# Install backend dependencies
-echo "Installing backend dependencies..."
-cd backend
-npm init -y
-npm install express cors body-parser dotenv node-fetch
-npm list express cors body-parser dotenv node-fetch
-cd ..
-
-# Verify installations
-echo "Verifying backend installation..."
-cd backend
-NODE_PATH=$(npm root) node -e "console.log('Express loaded:', require('express') !== undefined)"
-NODE_PATH=$(npm root) node -e "console.log('CORS loaded:', require('cors') !== undefined)"
-NODE_PATH=$(npm root) node -e "console.log('body-parser loaded:', require('body-parser') !== undefined)"
-NODE_PATH=$(npm root) node -e "console.log('dotenv loaded:', require('dotenv') !== undefined)"
-NODE_PATH=$(npm root) node -e "console.log('node-fetch loaded:', require('node-fetch') !== undefined)"
 cd ..
 
 # Create a test server script to verify backend can start
@@ -62,7 +77,13 @@ EOF
 
 # Test if server can start
 echo "Testing server initialization..."
-NODE_PATH=$(npm root) node test-server.js
+node test-server.js || {
+  echo "Server initialization failed, checking node_modules..."
+  ls -la node_modules
+  echo "Express module location:"
+  find node_modules -name "express" -type d
+  exit 1
+}
 cd ..
 
 echo "Build completed successfully!" 
