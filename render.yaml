@@ -5,6 +5,12 @@ services:
     buildCommand: chmod +x ./render-build.sh && ./render-build.sh
     startCommand: cd backend && node run.js
     plan: free
+    healthCheckPath: /api/health
+    healthCheckTimeout: 100
+    disk:
+      name: ai-writing-data
+      mountPath: /data
+      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production

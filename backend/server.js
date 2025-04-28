@@ -489,12 +489,23 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     time: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-    version: '1.0.0'
+    version: '1.0.0',
+    port: PORT
   });
 });
 
-// Start server
-app.listen(PORT, () => {
+// Log important information before starting
+console.log(`Starting server with the following configuration:
+- Port: ${PORT}
+- Environment: ${process.env.NODE_ENV || 'development'}
+- API Key present: ${process.env.OPENROUTER_API_KEY ? 'Yes' : 'No'}
+- Debug: ${process.env.DEBUG || 'False'}
+- Log Level: ${process.env.LOG_LEVEL || 'INFO'}
+- Default Model: ${process.env.DEFAULT_MODEL || 'default model not set'}`);
+
+// Start server - bind to all interfaces (0.0.0.0) for cloud hosting compatibility
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Mode: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Server is ready to accept connections`);
 }); 
