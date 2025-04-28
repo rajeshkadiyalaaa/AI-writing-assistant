@@ -3,7 +3,6 @@ services:
     name: ai-writing-assistant
     env: node
     buildCommand: chmod +x ./render-build.sh && ./render-build.sh
-    startCommand: PORT=10000 NODE_ENV=production node backend/server.js
     plan: free
     envVars:
       - key: NODE_ENV
@@ -29,4 +28,6 @@ services:
           property: host
       - key: PYTHON_VERSION
         value: 3.9.13
+      - key: NODE_VERSION
+        value: 18.17.1
     autoDeploy: true 

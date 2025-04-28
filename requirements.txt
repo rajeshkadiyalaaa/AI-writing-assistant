@@ -2,29 +2,39 @@
 python-dotenv>=1.0.0
 requests>=2.28.2
 
-# Optional - only used if present in the codebase
+# API integration
 openai>=1.0.0
+urllib3>=1.26.18
+
+# Environment and configuration
 python-decouple>=3.8
+
+# Async support
 aiohttp>=3.8.4
+asyncio>=3.4.3
 
 # Database
 sqlalchemy>=2.0.0
 
 # Required for text processing
 nltk>=3.8.1
+spacy>=3.6.1
+textstat>=0.7.3
+regex>=2023.10.3
 
-# Only include these if they're actually used in your scripts
-# pdfkit>=1.0.0
-# python-docx>=0.8.11
+# Document processing
 markdown>=3.4.3
+pypdf>=3.17.0
+docx2txt>=0.8
 
-# Additional dependencies that might be needed
+# Natural language processing
+transformers>=4.36.2
+datasets>=2.16.0
+
+# Machine learning utilities
 numpy>=1.24.0
 scipy>=1.10.0
-
-# UI and formatting
-# streamlit-ace>=0.1.1  # Removed since it's causing issues
-# python-docx>=0.8.11
+scikit-learn>=1.3.2
 
 # Text processing
 language-tool-python>=2.7.1

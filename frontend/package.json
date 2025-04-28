@@ -13,7 +13,12 @@
     "react-dom": "^18.2.0",
     "react-markdown": "^9.0.1",
     "react-scripts": "5.0.1",
-    "tailwindcss": "^3.4.1"
+    "tailwindcss": "^3.4.1",
+    "rehype-raw": "^7.0.0",
+    "rehype-sanitize": "^6.0.0",
+    "remark-gfm": "^4.0.0",
+    "highlight.js": "^11.8.0",
+    "file-saver": "^2.0.5"
   },
   "scripts": {
     "start": "react-scripts start",
