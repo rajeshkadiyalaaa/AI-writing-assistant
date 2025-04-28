@@ -27,6 +27,10 @@ cd frontend && npm install && cd ..
 echo "Installing Python dependencies..."
 pip install -r requirements.txt || pip3 install -r requirements.txt
 
+# Download NLTK data
+echo "Downloading NLTK data..."
+python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords')" || python3 -c "import nltk; nltk.download('punkt'); nltk.download('stopwords')"
+
 # Build frontend
 echo "Building frontend..."
 npm run build

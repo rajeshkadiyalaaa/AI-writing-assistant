@@ -21,11 +21,36 @@ const getApiUrl = () => {
 };
 
 // Create an axios instance with default config
-const api = axios.create({
+const axiosInstance = axios.create({
   baseURL: getApiUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+// Define API methods that match what's being called in the components
+const api = {
+  // Core axios methods
+  get: (url, config) => axiosInstance.get(url, config),
+  post: (url, data, config) => axiosInstance.post(url, data, config),
+  put: (url, data, config) => axiosInstance.put(url, data, config),
+  delete: (url, config) => axiosInstance.delete(url, config),
+  
+  // Application-specific API methods
+  verifyModel: (data) => axiosInstance.post('/api/verify-model', data),
+  settingsApikey: (data) => {
+    if (data && data.apiKey) {
+      return axiosInstance.post('/api/settings/apikey', data);
+    } else {
+      return axiosInstance.get('/api/settings/apikey');
+    }
+  },
+  generate: (data) => axiosInstance.post('/api/generate', data),
+  suggestions: (data) => axiosInstance.post('/api/suggestions', data),
+  improve: (data) => axiosInstance.post('/api/improve', data),
+  
+  // Utility method to get the base URL
+  getBaseUrl: () => getApiUrl()
+};
 
 export default api; 
