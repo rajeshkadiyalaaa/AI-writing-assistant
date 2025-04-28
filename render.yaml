@@ -1,0 +1,44 @@
+services:
+  # Backend API service
+  - type: web
+    name: ai-writing-assistant-api
+    env: node
+    buildCommand: npm install && cd backend && npm install && pip install -r ../requirements.txt
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: DEFAULT_MODEL
+        value: nvidia/llama-3.1-nemotron-nano-8b-v1:free
+      - key: TEMPERATURE
+        value: 0.7
+      - key: MAX_TOKENS
+        value: 1000
+      - key: LOG_LEVEL
+        value: INFO
+      - key: DEBUG
+        value: false
+      - key: FRONTEND_URL
+        fromService:
+          name: ai-writing-assistant-frontend
+          type: web
+          property: url
+
+  # Frontend web app
+  - type: web
+    name: ai-writing-assistant-frontend
+    env: node
+    buildCommand: npm install && cd frontend && npm install && npm run build
+    startCommand: npx serve -s frontend/build
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: REACT_APP_API_URL
+        fromService:
+          name: ai-writing-assistant-api
+          type: web
+          property: url 

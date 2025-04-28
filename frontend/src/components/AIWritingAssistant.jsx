@@ -7,7 +7,7 @@ import {
   AlertCircle, Copy, Shield, AlertTriangle, Moon, Sun,
   Cpu, ThumbsUp, ThumbsDown
 } from 'lucide-react';
-import axios from 'axios';
+import api from '../api';
 // Import Framer Motion for animations
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -290,7 +290,7 @@ export default function AIWritingAssistant() {
       setChatMessages(messagesWithTyping);
       
       // Call backend API with the current document type and tone settings
-      const response = await axios.post('/api/generate', {
+      const response = await api.generate({
         messages: updatedMessages,
         model: model,
         documentType: documentType, // Use selected document type instead of hardcoded value
@@ -426,7 +426,7 @@ export default function AIWritingAssistant() {
       }
       
       // Call backend API for suggestions
-      const response = await axios.post('/api/suggestions', {
+      const response = await api.suggestions({
         content: content,
         documentType: documentType,
         tone: tone,
@@ -572,7 +572,7 @@ export default function AIWritingAssistant() {
       
       console.log("Sending request to improve writing...");
       // Call backend API to improve the writing
-      const response = await axios.post('/api/improve', {
+      const response = await api.improve({
         content: content,
         targetAudience: documentType,
         readingLevel: tone === 'academic' ? 'advanced' : tone === 'technical' ? 'advanced' : 'intermediate',
@@ -1210,7 +1210,7 @@ export default function AIWritingAssistant() {
     
     try {
       // Verify the model by sending a test request
-      const response = await axios.post('/api/verify-model', {
+      const response = await api.verifyModel({
         model: customModelId
       });
       
@@ -1324,7 +1324,7 @@ export default function AIWritingAssistant() {
       
       if (storedKey) {
         // If we have a stored key, use it to get the masked version
-        const response = await axios.post('/api/settings/apikey', {
+        const response = await api.settingsApikey({
           apiKey: storedKey
         });
         
@@ -1332,7 +1332,7 @@ export default function AIWritingAssistant() {
         setApiKeySet(true);
       } else {
         // Otherwise, just check if the server has an API key set
-        const response = await axios.get('/api/settings/apikey');
+        const response = await api.settingsApikey();
         setMaskedApiKey(response.data.maskedKey);
         setApiKeySet(response.data.isSet);
       }
@@ -1353,7 +1353,7 @@ export default function AIWritingAssistant() {
     setApiKeyError('');
     
     try {
-      const response = await axios.post('/api/settings/apikey', {
+      const response = await api.settingsApikey({
         apiKey: apiKeyInput
       });
       
@@ -1405,7 +1405,7 @@ export default function AIWritingAssistant() {
       console.log('Testing OpenRouter API key...');
       
       // Use the verify-model endpoint since we're already using it for other purposes
-      const response = await axios.post('/api/verify-model', {
+      const response = await api.verifyModel({
         apiKey: apiKeyInput,
         model: 'nvidia/llama-3.1-nemotron-nano-8b-v1:free' // Use free model for testing
       });

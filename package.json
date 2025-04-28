@@ -7,7 +7,8 @@
     "backend": "cd backend && npm run start",
     "frontend": "cd frontend && npm start",
     "install-all": "npm install && cd frontend && npm install && cd ../backend && npm install",
-    "build": "cd frontend && npm run build"
+    "build": "cd frontend && npm run build",
+    "serve": "npx serve -s frontend/build"
   },
   "keywords": [
     "ai",
@@ -20,5 +21,8 @@
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "serve": "^14.2.1"
   }
 } 
