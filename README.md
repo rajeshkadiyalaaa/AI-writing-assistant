@@ -38,66 +38,49 @@ The system employs advanced prompt engineering to extract optimal performance fr
 - **Responsive Design Improvements**: Better mobile UI and sidebar usability
 - **Performance Optimizations**: Reduced token usage and improved response time
 
-## Deployment with GitHub and Vercel
+## Deployment Options
 
-### GitHub Deployment
+### Standard Deployment
 
-1. **Initialize Git repository** (if not already done):
+1. **Build the application**:
    ```bash
-   git init
-   git add .
-   git commit -m "Initial commit"
+   npm run build
    ```
 
-2. **Create a GitHub repository**:
-   - Go to [GitHub](https://github.com) and create a new repository
-   - Follow the instructions to push your existing repository:
+2. **Start the application**:
    ```bash
-   git remote add origin https://github.com/yourusername/ai-writing-assistant.git
-   git branch -M main
-   git push -u origin main
+   npm start
    ```
 
-3. **For future updates**:
-   ```bash
-   git add .
-   git commit -m "Your update message"
-   git push
+### Hosting Options
+
+You can deploy this application on any standard hosting platform:
+
+1. **Traditional Hosting**:
+   - Upload the built frontend files to any web hosting service
+   - Deploy the backend on a Node.js hosting service like Heroku, Digital Ocean, or AWS
+
+2. **Docker Deployment**:
+   - Create a Docker container for the application
+   - Deploy to any container hosting service
+
+3. **Cloud Services**:
+   - AWS: Deploy frontend to S3 + CloudFront and backend to EC2 or Lambda
+   - Google Cloud: Host frontend on Firebase and backend on Cloud Run
+   - Azure: Use Azure Static Web Apps for frontend and App Service for backend
+
+4. **Configure Environment Variables**:
+   Ensure these environment variables are set in your hosting platform:
    ```
-
-### Vercel Deployment
-
-This project is configured for seamless deployment on Vercel:
-
-1. **Fork or clone this repository**
-   - Create your own copy of the repository on GitHub
-
-2. **Set up a Vercel account**
-   - Go to [Vercel](https://vercel.com) and sign up or log in
-   - Connect your GitHub account
-
-3. **Import your repository**
-   - In Vercel dashboard, click "Add New" → "Project"
-   - Select your repository from the list
-   - Vercel will automatically detect the project configuration
-
-4. **Configure environment variables**
-   - Add the following environment variables in Vercel's project settings:
-     ```
-     OPENROUTER_API_KEY=your_api_key_here
-     NODE_ENV=production
-     DEBUG=false
-     LOG_LEVEL=INFO
-     DEFAULT_MODEL=nvidia/llama-3.1-nemotron-nano-8b-v1:free
-     TEMPERATURE=0.7
-     MAX_TOKENS=1000
-     ```
-
-5. **Deploy**
-   - Click "Deploy" and Vercel will build and deploy your application
-   - Your AI Writing Assistant will be available at a vercel.app domain
-
-The included `vercel.json` file handles the configuration for both frontend and backend, ensuring that API routes are properly directed to the backend while static content is served from the frontend.
+   OPENROUTER_API_KEY=your_api_key_here
+   NODE_ENV=production
+   DEBUG=false
+   LOG_LEVEL=INFO
+   FRONTEND_URL=your_frontend_url
+   DEFAULT_MODEL=nvidia/llama-3.1-nemotron-nano-8b-v1:free
+   TEMPERATURE=0.7
+   MAX_TOKENS=1000
+   ```
 
 ## Features
 
@@ -134,7 +117,6 @@ ai-writing-assistant/
 │   └── package.json         # Backend dependencies
 ├── package.json             # Root package.json for running both apps
 ├── requirements.txt         # Python dependencies
-├── vercel.json              # Vercel deployment configuration
 └── .env                     # Environment variables
 ```
 

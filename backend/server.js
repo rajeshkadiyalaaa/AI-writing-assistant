@@ -18,7 +18,7 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://ai-writing-assistant.vercel.app', 'https://chat-bot-git-main-rajeshkadiyalaaa.vercel.app', /\.vercel\.app$/] 
+    ? ['http://localhost:3000', process.env.FRONTEND_URL].filter(Boolean)
     : 'http://localhost:3000',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true
@@ -27,7 +27,6 @@ app.use(bodyParser.json());
 
 // Serve static files from the React app in production
 if (process.env.NODE_ENV === 'production') {
-  // Update path for Vercel deployment
   const frontendBuildPath = path.join(__dirname, '../frontend/build');
   console.log('Serving static files from:', frontendBuildPath);
   app.use(express.static(frontendBuildPath));
