@@ -3,10 +3,13 @@ services:
     name: ai-writing-assistant
     env: node
     buildCommand: chmod +x ./render-build.sh && ./render-build.sh
-    startCommand: NODE_ENV=production node backend/server.js
+    startCommand: PORT=10000 NODE_ENV=production node backend/server.js
+    plan: free
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 10000
       - key: OPENROUTER_API_KEY
         sync: false
       - key: DEBUG
