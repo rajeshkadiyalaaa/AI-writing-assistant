@@ -2,15 +2,9 @@ services:
   # Backend API service
   - type: web
     name: ai-writing-assistant-api
-    env: python
-    buildCommand: |
-      npm install
-      cd backend && npm install
-      cd .. && pip install -r requirements.txt
-      python -m nltk.downloader punkt
-      python -m nltk.downloader stopwords
-      chmod +x start.sh
-    startCommand: ./start.sh
+    env: node
+    buildCommand: npm install && cd backend && npm install && pip install -r ../requirements.txt
+    startCommand: cd backend && npm start
     envVars:
       - key: NODE_ENV
         value: production
@@ -33,7 +27,6 @@ services:
           name: ai-writing-assistant-frontend
           type: web
           property: url
-    healthCheckPath: /api/health
 
   # Frontend web app
   - type: web
