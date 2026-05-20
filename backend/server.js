@@ -144,10 +144,11 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static(frontendBuildPath));
   
   // Always return the main index.html for any route not handled by API or static files
-  app.get('*', (req, res) => {
+  app.get('*', (req, res, next) => {
     if (!req.path.startsWith('/api')) {
-      res.sendFile(path.join(frontendBuildPath, 'index.html'));
+      return res.sendFile(path.join(frontendBuildPath, 'index.html'));
     }
+    return next();
   });
 }
 
