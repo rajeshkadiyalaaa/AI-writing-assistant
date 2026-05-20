@@ -13,6 +13,9 @@ node_modules/
 
 # Misc
 .DS_Store
+api_details.txt
+nltk_data/
+*.pickle
 .env
 .env.local
 .env.development.local

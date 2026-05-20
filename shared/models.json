@@ -1,0 +1,13 @@
+{
+  "default_model": "openrouter/free",
+  "models": [
+    {
+      "id": "openrouter/free",
+      "name": "OpenRouter Free Router",
+      "strengths": ["general", "creative"],
+      "description": "Fallback when OpenRouter catalog cannot be loaded",
+      "free": true,
+      "task": "general"
+    }
+  ]
+}

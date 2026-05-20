@@ -7,9 +7,9 @@ This directory contains a collection of Python scripts designed to interact with
 - **generate_response.py**: Generates AI responses for chat and writing assistance
 - **generate_suggestions.py**: Creates detailed suggestions for improving written content
 - **improve_readability.py**: Enhances text for better readability and clarity
-- **summarize_content.py**: Creates concise summaries with customizable length and focus
-- **format_content.py**: Formats content according to specific requirements
 - **utils.py**: Common utility functions shared across scripts
+- **openrouter_response.py**: Shared parsing of OpenRouter/OpenAI-style completion JSON (assistant text extraction)
+- **dev/**: Manual test scripts (`test_api_key.py`, `test_nltk_env.py`, `test_tokenize.py`)
 
 ## Key Enhancements
 

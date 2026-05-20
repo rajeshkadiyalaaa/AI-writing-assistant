@@ -1,12 +1,12 @@
 import React from 'react';
 import AIWritingAssistant from './components/AIWritingAssistant';
-import './styles/tailwind.css';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
   return (
-    <div className="App">
+    <ErrorBoundary>
       <AIWritingAssistant />
-    </div>
+    </ErrorBoundary>
   );
 }
 

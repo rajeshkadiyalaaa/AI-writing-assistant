@@ -1,59 +1,51 @@
 import axios from 'axios';
+import { normalizeError, formatApiError as formatError } from '../lib/errors';
 
 /**
- * Get the API URL based on environment
- * @returns {string} The API URL
+ * API base URL:
+ * - REACT_APP_API_URL if set (e.g. http://localhost:5001)
+ * - dev: empty string → CRA proxy in package.json forwards /api to backend
+ * - prod: same origin as the served app
  */
-const getApiUrl = () => {
-  // First check for explicit REACT_APP_API_URL from environment
+export const getApiUrl = () => {
   if (process.env.REACT_APP_API_URL) {
-    return process.env.REACT_APP_API_URL;
+    return process.env.REACT_APP_API_URL.replace(/\/$/, '');
   }
-  
-  // For production, if no explicit URL is provided, try window.location.origin
-  if (process.env.NODE_ENV === 'production') {
-    // Check if we're running on the same origin as the API
-    return window.location.origin;
+  if (process.env.NODE_ENV === 'development') {
+    return '';
   }
-  
-  // Default for development
-  return 'http://localhost:5000';
+  return window.location.origin;
 };
 
-// Create an axios instance with default config
+/** @deprecated use formatApiError from lib/errors — re-exported for compatibility */
+export const formatApiError = formatError;
+
 const axiosInstance = axios.create({
   baseURL: getApiUrl(),
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
+  timeout: 120000,
 });
 
-// Enhanced API client with wrapper functions
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  (error) => Promise.reject(normalizeError(error))
+);
+
 const api = {
-  // Axios instance
   axiosInstance,
-  
-  // Base HTTP methods
   get: (url, config) => axiosInstance.get(url, config),
   post: (url, data, config) => axiosInstance.post(url, data, config),
-  put: (url, data, config) => axiosInstance.put(url, data, config),
-  delete: (url, config) => axiosInstance.delete(url, config),
-  
-  // App-specific methods
+  health: () => axiosInstance.get('/api/health'),
+  verifyApiKey: (data) => axiosInstance.post('/api/verify-apikey', data),
   verifyModel: (data) => axiosInstance.post('/api/verify-model', data),
-  settingsApikey: (data) => {
-    // GET request if no data is provided
-    if (!data) {
-      return axiosInstance.get('/api/settings/apikey');
-    }
-    // POST request with data
-    return axiosInstance.post('/api/settings/apikey', data);
-  },
-  generate: (data) => axiosInstance.post('/api/generate', data),
-  suggestions: (data) => axiosInstance.post('/api/suggestions', data),
-  improve: (data) => axiosInstance.post('/api/improve', data),
-  chat: (data) => axiosInstance.post('/api/chat', data),
-  models: () => axiosInstance.get('/api/models'),
+  settingsApikey: (data) => (
+    data ? axiosInstance.post('/api/settings/apikey', data) : axiosInstance.get('/api/settings/apikey')
+  ),
+  generate: (data, config) => axiosInstance.post('/api/generate', data, config),
+  suggestions: (data, config) => axiosInstance.post('/api/suggestions', data, config),
+  improve: (data, config) => axiosInstance.post('/api/improve', data, config),
+  models: (config) => axiosInstance.get('/api/models', config),
+  refreshModels: (config) => axiosInstance.post('/api/models/refresh', undefined, config),
 };
 
-export default api; 
+export default api;

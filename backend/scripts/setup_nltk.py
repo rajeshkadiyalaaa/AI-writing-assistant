@@ -4,6 +4,13 @@ import os
 import sys
 import shutil
 import pickle
+import ssl
+
+try:
+    import certifi
+    ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where())
+except ImportError:
+    pass
 
 def setup_nltk():
     """
@@ -25,7 +32,8 @@ def setup_nltk():
     
     # Download required NLTK packages
     packages = [
-        'punkt',      # For tokenization
+        'punkt',
+        'punkt_tab',
         'averaged_perceptron_tagger',  # For part-of-speech tagging
         'stopwords',  # For stopword removal
         'wordnet',    # For lemmatization

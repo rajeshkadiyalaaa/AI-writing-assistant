@@ -1,306 +1,304 @@
-# AI Writing Assistant
+# Scribe — AI Writing Assistant
 
-A sophisticated AI-powered writing tool featuring a modern React frontend and Node.js/Python backend that helps users create, improve, and optimize various written content using the OpenRouter API with access to multiple LLM models.
+Scribe helps you write better, faster. Draft in a clean editor, ask the AI for ideas or rewrites, get suggestions to polish your text, and export when you’re done—all in one place. Add your [OpenRouter](https://openrouter.ai) API key to get started.
 
-## What This Project Does
-
-The AI Writing Assistant is a comprehensive writing enhancement platform that leverages large language models (LLMs) to help users at every stage of the writing process:
-
-1. **Content Generation**: Creates high-quality first drafts based on minimal input, from emails to academic papers
-2. **Real-time Editing**: Provides inline suggestions, grammar corrections, and style improvements as you type
-3. **Content Transformation**: Converts between writing styles (formal, casual, technical) while preserving content
-4. **Quality Analysis**: Evaluates writing along multiple dimensions and suggests specific improvements
-5. **Document Management**: Maintains version history with intelligent comparisons between drafts
-6. **Multi-format Export**: Exports documents in Markdown, PDF, and Word formats with proper formatting
-
-### User Flow and Interaction
-
-1. Users select a document type (email, blog, academic, creative) and writing parameters
-2. As they type, the system continuously analyzes the text and offers suggestions
-3. Users can request specific improvements (clarity, conciseness, tone adjustment)
-4. Final content can be exported in various formats with appropriate formatting
-
-### Technical Implementation
-
-This application uses a hybrid architecture:
-- **React frontend**: Provides responsive UI with real-time editing capabilities
-- **Node.js backend**: Handles API routing, authentication, and document management
-- **Python processing layer**: Manages AI interactions and complex text analysis
-- **SQLite database**: Stores user documents, preferences, and version history
-
-The system employs advanced prompt engineering to extract optimal performance from LLMs, with specialized prompts for different document types and writing tasks. Response processing includes structured parsing and quality evaluation to ensure consistently high-quality output.
-
-## Latest Updates
-
-- **Fixed PDF Export**: Implemented proper blob handling for PDF files with correct MIME types
-- **Improved Word Document Export**: Added proper MIME type handling for .docx files
-- **Enhanced Export Error Handling**: Added HTML fallback when PDF or Word generation fails
-- **Responsive Design Improvements**: Better mobile UI and sidebar usability
-- **Performance Optimizations**: Reduced token usage and improved response time
-
-## Deployment Options
-
-### Standard Deployment
-
-1. **Build the application**:
-   ```bash
-   npm run build
-   ```
-
-2. **Start the application**:
-   ```bash
-   npm start
-   ```
-
-### Hosting Options
-
-You can deploy this application on any standard hosting platform:
-
-1. **Traditional Hosting**:
-   - Upload the built frontend files to any web hosting service
-   - Deploy the backend on a Node.js hosting service like Heroku, Digital Ocean, or AWS
-
-2. **Docker Deployment**:
-   - Create a Docker container for the application
-   - Deploy to any container hosting service
-
-3. **Cloud Services**:
-   - AWS: Deploy frontend to S3 + CloudFront and backend to EC2 or Lambda
-   - Google Cloud: Host frontend on Firebase and backend on Cloud Run
-   - Azure: Use Azure Static Web Apps for frontend and App Service for backend
-
-4. **Configure Environment Variables**:
-   Ensure these environment variables are set in your hosting platform:
-   ```
-   OPENROUTER_API_KEY=your_api_key_here
-   NODE_ENV=production
-   DEBUG=false
-   LOG_LEVEL=INFO
-   FRONTEND_URL=your_frontend_url
-   DEFAULT_MODEL=nvidia/llama-3.1-nemotron-nano-8b-v1:free
-   TEMPERATURE=0.7
-   MAX_TOKENS=1000
-   ```
+![Stack](https://img.shields.io/badge/React-18-61dafb) ![Node](https://img.shields.io/badge/Express-4-339933) ![Python](https://img.shields.io/badge/Python-3.9+-3776ab)
 
 ## Features
 
-- **Multi-Format Content Creation**: Specialized assistance for emails, blogs, academic papers, and creative writing
-- **Advanced Style and Tone Customization**: Adjust temperature and select writing style (professional, casual, academic, etc.)
-- **Real-Time AI Suggestions**: Get instant feedback and improvements for your content
-- **Document Management System**: Save, organize, and compare different versions of your documents
-- **Smart Export Options**: Download your content in Markdown, PDF, and DOCX formats with proper formatting
-- **Custom Model Integration**: Add and use any model available through OpenRouter API
-- **Chat Interface**: Communicate directly with AI models to discuss your writing
-- **Content Analysis**: Get statistics and metrics about your writing
-- **Response Quality Analysis**: Automatic evaluation of AI output with quality metrics and structure parsing
+| Area | What you get |
+|------|----------------|
+| **Editor** | Plain-text workspace, word count & read time, “Sounds AI-ish” lint, undo/redo |
+| **Draft safety** | Autosave to `localStorage`, restore banner on reload |
+| **Documents** | Save/load drafts in-session (title, tone, model, temperature) |
+| **AI chat** | Streaming replies; insert at cursor, append, or replace selection |
+| **AI assist** | Review draft, rewrite for clarity, improve selection with before/after compare |
+| **Suggestions** | Parsed apply with preview; safe find/replace when the model gives quoted fixes |
+| **Models** | Three free OpenRouter models by task (general, business, academic); refresh catalog; custom models |
+| **API key** | Set in UI (dev) or server `.env` (production) |
+| **Reliability** | Cancel in-flight requests, retry on failure, real token usage stats |
+| **Export** | Markdown, PDF, DOCX (HTML fallback if PDF/DOCX fails) |
+| **UI** | Writing Studio layout, dark mode, resizable panels, mobile bottom nav |
 
-## Project Structure
+**Writing voice:** All AI paths use rules from [`Skills.txt`](Skills.txt) (also [`shared/writing_skills.txt`](shared/writing_skills.txt)), loaded by `backend/scripts/writing_skills.py`. Edit either file to change tone app-wide.
+
+**Storage:** Documents and edit history live in browser memory for the session (plus optional `localStorage` for drafts and dev API key). There is no database—refresh clears unsaved work unless you saved or restored a draft.
+
+## Stack
+
+```
+Browser (React 18 + Tailwind)
+    ↓  /api/*
+Express (Node.js) — apiErrors, OpenRouter model cache
+    ↓  spawn python3
+Python scripts → OpenRouter API
+```
+
+| Layer | Tech |
+|-------|------|
+| Frontend | React 18, Tailwind, Axios, Lucide, jsPDF, docx |
+| Backend | Express 4, CORS, dotenv, `pythonRunner.js`, `openRouterModels.js` |
+| AI | Python 3.9+, `requests`, NLTK (optional) |
+
+## Requirements
+
+- **Node.js** 18+
+- **npm** 8+
+- **Python** 3.9+
+- **OpenRouter API key** — [openrouter.ai/keys](https://openrouter.ai/keys) (`sk-or-...`)
+
+## Quick start
+
+### 1. Clone and install
+
+```bash
+git clone <your-repo-url>
+cd ai-writing-assistant
+
+npm run install-all
+pip install -r requirements.txt
+npm run setup:nltk
+```
+
+`nltk_data/` is not in git; `npm run setup:nltk` downloads tokenizers locally.
+
+### 2. Environment
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` at the project root:
+
+```env
+OPENROUTER_API_KEY=sk-or-v1-...
+PORT=5001
+PYTHON_PATH=python3
+DEFAULT_MODEL=openrouter/free
+TEMPERATURE=0.7
+MAX_TOKENS=1000
+```
+
+> **Port:** macOS often uses **5000** for AirPlay. This project defaults to **5001**. The CRA dev proxy in `frontend/package.json` forwards `/api` to `http://localhost:5001`.
+
+### 3. Run
+
+From the **repository root**:
+
+```bash
+npm start
+```
+
+| Service | URL |
+|---------|-----|
+| App (UI) | http://localhost:3000 |
+| API | http://localhost:5001 |
+
+Health check: `GET http://localhost:5001/api/health`
+
+**Backend with auto-reload:**
+
+```bash
+cd backend && npm run dev
+```
+
+In another terminal: `cd frontend && npm start`
+
+## Project structure
 
 ```
 ai-writing-assistant/
-├── frontend/                # React frontend application
-│   ├── src/                 # Frontend source code
-│   │   ├── components/      # React components
-│   │   ├── api/             # API integration
-│   │   ├── hooks/           # Custom React hooks
-│   │   └── styles/          # CSS and styling files
-│   ├── public/              # Static assets
-│   └── package.json         # Frontend dependencies
-├── backend/                 # Node.js Express backend
-│   ├── scripts/             # Python scripts for AI processing
-│   │   ├── generate_response.py     # Generates AI responses
-│   │   ├── generate_suggestions.py  # Provides writing suggestions
-│   │   ├── improve_readability.py   # Enhances text clarity
-│   │   ├── test_api_key.py          # Tests the OpenRouter API key
-│   │   └── utils.py                 # Shared utility functions
-│   ├── server.js            # Express server entry point
-│   └── package.json         # Backend dependencies
-├── package.json             # Root package.json for running both apps
-├── requirements.txt         # Python dependencies
-└── .env                     # Environment variables
+├── frontend/
+│   ├── public/
+│   │   ├── logo.svg              # Header logo
+│   │   └── favicon.svg           # Browser tab icon
+│   └── src/
+│       ├── api/index.js          # Axios + error interceptor
+│       ├── components/
+│       │   ├── AIWritingAssistant.jsx
+│       │   ├── ErrorBoundary.jsx
+│       │   └── studio/           # Editor, Assist, Settings, modals
+│       ├── hooks/                # Chat, suggestions, autosave, history, …
+│       ├── lib/                  # errors, streamChat, tokenUsage, editorUtils
+│       └── constants/            # models, branding, conversationStarters
+├── backend/
+│   ├── server.js
+│   ├── apiErrors.js
+│   ├── openRouterModels.js       # Cached free model catalog
+│   ├── pythonRunner.js
+│   ├── sanitizeKey.js
+│   └── scripts/
+│       ├── generate_response.py
+│       ├── generate_suggestions.py
+│       ├── improve_readability.py
+│       └── writing_skills.py
+├── logos/                        # Source assets (copied to frontend/public)
+├── Skills.txt                    # App-wide writing voice rules
+├── scripts/smoke-test.js
+├── Dockerfile                  # Production image (Node + Python + NLTK)
+├── render.yaml                 # Render Blueprint (single Docker web service)
+├── .env.example
+└── package.json
 ```
 
-## System Requirements
+## Environment variables
 
-- **Node.js**: v14.x or higher
-- **Python**: v3.9 or higher
-- **NPM**: v6.x or higher
-- **OpenRouter API Key**: Register at [OpenRouter](https://openrouter.ai) to get an API key
-- **Operating System**: Windows 10/11, macOS 10.15+, Ubuntu 20.04+
-- **RAM**: Minimum 4GB, recommended 8GB+
-- **Storage**: At least 500MB free space for installation
-- **Browser**: Chrome 90+, Firefox 90+, Edge 90+ (for using the web interface)
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `OPENROUTER_API_KEY` | Yes* | OpenRouter bearer token |
+| `PORT` | No | Backend port (use `5001` locally) |
+| `PYTHON_PATH` | No | Python binary (default `python3`) |
+| `DEFAULT_MODEL` | No | Fallback model id |
+| `TEMPERATURE` | No | Default sampling temperature |
+| `MAX_TOKENS` | No | Default max tokens per request |
+| `NODE_ENV` | No | `production` serves `frontend/build` from Express |
+| `ALLOW_UI_API_KEY` | No | Allow UI key save in production (default: blocked) |
+| `FRONTEND_URL` | No | `HTTP-Referer` to OpenRouter; on Render, `RENDER_EXTERNAL_URL` is used if unset |
+| `RENDER_EXTERNAL_URL` | No | Set automatically by Render — used for Referer and CORS when `FRONTEND_URL` is unset |
+| `REACT_APP_API_URL` | No | Frontend API base when not using CRA proxy |
+| `DEBUG` | No | Log Python stderr when `True` |
 
-## Dependencies
+\* **Development:** set the key in **Settings → API key** (stored in server memory for the process; optional “Remember in browser”). **Production:** set `OPENROUTER_API_KEY` in `.env` only—the UI save endpoint returns `403` unless `ALLOW_UI_API_KEY=true`.
 
-### Frontend Dependencies
-- React 18.x
-- Tailwind CSS 3.x
-- Lucide React (for icons)
-- Axios (for API requests)
-- React Markdown (for rendering)
-- jsPDF (for PDF export)
-- docx (for Word document export)
+## API reference
 
-### Backend Dependencies
-- Express 4.x
-- CORS
-- Body-parser
-- Node-fetch
-- Dotenv
-- Child_process (for Python script execution)
+Base URL: `http://localhost:5001` (development).
 
-### Python Dependencies
-- Requests
-- Python-dotenv
-- SQLAlchemy (for database operations)
-- NLTK (for natural language processing)
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/health` | Status, Python path, `apiKeyConfigured` |
+| `GET` | `/api/models` | Task-specific free models (cached ~6h) |
+| `POST` | `/api/models/refresh` | Invalidate cache and refetch from OpenRouter |
+| `POST` | `/api/generate` | Non-streaming chat completion |
+| `POST` | `/api/generate/stream` | SSE stream (chat UI) |
+| `POST` | `/api/suggestions` | Writing suggestions for draft content |
+| `POST` | `/api/improve` | Readability rewrite (`selectedText` optional) |
+| `POST` | `/api/verify-apikey` | Validate OpenRouter key |
+| `POST` | `/api/verify-model` | Probe a custom model id |
+| `GET` | `/api/settings/apikey` | Whether a key is set (masked preview optional) |
+| `POST` | `/api/settings/apikey` | Set in-memory server key (dev / `ALLOW_UI_API_KEY`) |
 
-## Quick Setup
+Errors return JSON `{ error, details?, code? }` with appropriate HTTP status (401, 429, 502, etc.).
 
-1. Clone this repository:
-   ```
-   git clone https://github.com/yourusername/ai-writing-assistant.git
-   cd ai-writing-assistant
-   ```
+**Example — streaming is used by the UI; non-stream fallback:**
 
-2. Create a `.env` file in the root directory with your API key and preferred model:
-   ```
-   # API Keys
-   OPENROUTER_API_KEY=your_openrouter_api_key_here
-   
-   # Application settings
-   DEBUG=True
-   LOG_LEVEL=INFO
-   
-   # Database configuration
-   DATABASE_URL=sqlite:///./ai_writing_assistant.db
-   
-   # Model settings
-   DEFAULT_MODEL=nvidia/llama-3.1-nemotron-nano-8b-v1:free
-   TEMPERATURE=0.7
-   MAX_TOKENS=1000
-   ```
-
-3. Install Node.js dependencies for both frontend and backend:
-   ```
-   npm run install-all
-   ```
-
-4. Install Python dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
-
-5. Run the full application (both frontend and backend):
-   ```
-   npm start
-   ```
-
-   This will start:
-   - React frontend on http://localhost:3000
-   - Node.js backend on http://localhost:5000
-
-## Usage Examples
-
-### Example 1: Creating a Professional Email
-
-1. Select "Email" from the document type dropdown
-2. Choose "Professional" tone
-3. Enter a brief description of the email purpose: "Request for project timeline extension"
-4. Click "Generate Draft" for an initial version
-5. Edit the generated content as needed
-6. Use the "Improve" button for specific enhancements
-7. Export as plain text or directly copy to your email client
-
-### Example 2: Academic Paper Assistance
-
-1. Select "Academic" from the document type dropdown
-2. Set tone to "Formal" and adjust temperature to 0.5 for more precise output
-3. Upload an existing draft or outline if available
-4. Use the section-by-section generation for introduction, methodology, results, etc.
-5. Request specific improvements like "Add more technical detail to methodology"
-6. Generate appropriate citations in your preferred format
-7. Export as DOCX or PDF with proper academic formatting
-
-### Example 3: Creative Writing Enhancement
-
-1. Select "Creative" from the document type dropdown
-2. Choose your genre (fiction, poetry, screenplay)
-3. Set a higher temperature (0.7-0.9) for more creative variations
-4. Enter a scene description or character details
-5. Use the chat interface to discuss plot development or character arcs
-6. Request specific improvements like "Make the dialogue more natural"
-7. Save different versions to compare alternative approaches
-
-## Development
-
-### Frontend Only
-```
-cd frontend
-npm start
+```bash
+curl -s http://localhost:5001/api/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [{"role":"user","content":"Outline a blog post about remote work."}],
+    "documentType": "general",
+    "tone": "professional",
+    "model": "openrouter/free"
+  }'
 ```
 
-### Backend Only
+## How it works
+
+1. React calls `/api/*` (CRA proxy in dev, or same-origin on production when API and UI share one host).
+2. Express validates input, maps Python/OpenRouter errors via `apiErrors.js`, and spawns scripts with `pythonRunner.js`.
+3. Python builds prompts (document type, tone, `Skills.txt`), calls OpenRouter, returns JSON on stdout.
+4. Chat prefers `/api/generate/stream`; on failure it falls back to `/api/generate`.
+5. Frontend normalizes errors in `lib/errors.js` and shows toasts / inline chat errors.
+
+See `backend/scripts/RESPONSE_QUALITY.md` for response enrichment on generate.
+
+## UI overview
+
+| Panel | Actions |
+|-------|---------|
+| **Editor** | Write, undo/redo, save, export, improve selection |
+| **Chat** | Streamed conversation; per-message **At cursor** / **Append** / **Replace selection** |
+| **Assist** | Review draft, rewrite for clarity (compare modal), apply suggestions |
+| **Style** (sidebar) | Document type, tone, model, temperature, API key, token usage |
+
+Logo size: edit `frontend/src/constants/branding.js`.
+
+## Production build
+
+### Local (single host)
+
+Express serves the React build:
+
+```bash
+cd frontend && npm run build
+cd ..
+NODE_ENV=production PORT=5001 node backend/server.js
 ```
-cd backend
-npm start
+
+Open http://localhost:5001
+
+### Deploy on Render (recommended)
+
+The repo includes a **Docker** image (`Dockerfile`) and **`render.yaml`** Blueprint so one **Web Service** runs Node, Python (OpenRouter scripts), and NLTK.
+
+1. Push this repository to GitHub (or GitLab / Bitbucket).
+2. In the [Render dashboard](https://dashboard.render.com), **New → Blueprint**, select the repo, and confirm it picks up `render.yaml`.
+3. In the service **Environment**, add **`OPENROUTER_API_KEY`** (your `sk-or-...` key). Other vars in the Blueprint are optional defaults.
+4. Deploy. When the build finishes, open your service URL (e.g. `https://scribe-xxxx.onrender.com`).
+
+**Notes:**
+
+- **Free** instances spin down after idle; first request after sleep can take ~30–60s.
+- The UI talks to the API on the **same origin** — you do **not** need `REACT_APP_API_URL` for this layout.
+- **`OPENROUTER_API_KEY`** must be set on the server in production (the app blocks pasting keys in the UI unless `ALLOW_UI_API_KEY=true`).
+- **`FRONTEND_URL`** is optional; Render sets **`RENDER_EXTERNAL_URL`**, which the server uses for OpenRouter `HTTP-Referer` and CORS when `FRONTEND_URL` is unset.
+
+**Smoke test** against production (replace the URL):
+
+```bash
+curl -s https://your-service.onrender.com/api/health
 ```
 
-### Python Scripts Development
-The Python scripts in the `backend/scripts` directory handle the core AI functionality:
+**Local Docker check** (optional):
 
-- **generate_response.py**: Creates responses based on user prompts with customizable parameters
-- **generate_suggestions.py**: Provides detailed writing improvement suggestions
-- **improve_readability.py**: Enhances text for better readability and clarity
-- **utils.py**: Shared utility functions for all scripts
+```bash
+docker build -t scribe .
+docker run --rm -p 10000:10000 -e PORT=10000 -e OPENROUTER_API_KEY=sk-or-v1-... scribe
+```
 
-## API Endpoints
+## npm scripts
 
-The backend provides several REST API endpoints:
+| Command | Description |
+|---------|-------------|
+| `npm start` | Backend + frontend (concurrently) |
+| `npm run backend` | Express API only |
+| `npm run frontend` | React dev server only |
+| `npm run install-all` | Install root, frontend, and backend deps |
+| `npm run build` | Production React build |
+| `npm run setup:nltk` | Download NLTK data |
+| `npm test` | Smoke tests (backend must be running on `PORT`) |
 
-- **POST /api/generate**: Generate AI responses for content creation
-  - Parameters: `messages`, `model`, `documentType`, `tone`, `temperature`
-  - Returns: Generated text with quality metrics and usage statistics
+## Smoke tests
 
-- **POST /api/chat**: Chat with AI models conversationally
-  - Parameters: `message`, `model`
-  - Returns: AI response in conversational format
+With the API running:
 
-- **POST /api/suggestions**: Get writing improvement suggestions
-  - Parameters: `content`, `documentType`, `tone`, `model`
-  - Returns: Structured suggestions for improving the content
+```bash
+npm test
+```
 
-- **POST /api/improve**: Improve the readability of content
-  - Parameters: `content`, `targetAudience`, `readingLevel`, `additionalInstructions`, `model`
-  - Returns: Improved content with better readability
+Checks `/api/health`, `/api/models` shape, Python imports, `writing_skills` load, and a suggestion JSON fixture.
 
-- **POST /api/verify-model**: Verify a custom model from OpenRouter
-  - Parameters: `model`, `apiKey`
-  - Returns: Verification status and model details
+## Troubleshooting
 
-- **POST /api/settings/apikey**: Update the OpenRouter API key
-  - Parameters: `apiKey`
-  - Returns: Success status and masked API key
-
-- **GET /api/settings/apikey**: Get the masked API key
-  - Returns: Masked API key and status
-
-- **GET /api/models**: Get available models
-  - Returns: List of available models and default model
-
-- **GET /api/health**: Health check endpoint
-  - Returns: Server status and version information
+| Problem | Fix |
+|---------|-----|
+| Cannot reach the backend | Run `npm start` from repo root; confirm `PORT=5001` and proxy in `frontend/package.json` |
+| Python not found | Install Python 3.9+; set `PYTHON_PATH=python3` in `.env` |
+| API key errors | Use `sk-or-...` from [openrouter.ai/keys](https://openrouter.ai/keys); paste without extra spaces |
+| Invalid model / 400 from OpenRouter | **Style → Refresh free models** or pick another model |
+| Suggestions fail | `pip install -r requirements.txt`; check backend terminal for Python errors |
+| NLTK warnings | Run `npm run setup:nltk` |
+| Key save blocked in production | Set `OPENROUTER_API_KEY` in `.env`, not the UI |
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Issues and pull requests are welcome. Match patterns in `server.js`, `pythonRunner.js`, hooks under `frontend/src/hooks/`, and `studio/` components.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT
 
 ## Acknowledgments
 
-- Thanks to OpenRouter for providing access to multiple AI models through a single API
-- All the open-source libraries and frameworks that made this project possible 
+- [OpenRouter](https://openrouter.ai) for unified LLM access

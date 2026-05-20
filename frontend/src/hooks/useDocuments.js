@@ -1,244 +1,152 @@
-/**
- * Custom hook for document management
- */
-import { useState, useEffect } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import { 
-  saveDocumentsToStorage, 
-  loadDocumentsFromStorage, 
-  convertContent, 
-  downloadFile 
-} from '../utils/documentUtils';
+import { useState, useEffect, useCallback } from 'react';
 
-/**
- * Custom hook for document management
- * @param {Function} showNotification - Function to show notifications
- * @returns {Object} Document management state and functions
- */
-export const useDocuments = (showNotification) => {
-  // Document state
-  const [title, setTitle] = useState('Untitled Document');
-  const [content, setContent] = useState('');
-  const [documentType, setDocumentType] = useState('general');
-  const [tone, setTone] = useState('professional');
-  const [savedDocuments, setSavedDocuments] = useState(loadDocumentsFromStorage);
-  const [currentDocumentId, setCurrentDocumentId] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [isExporting, setIsExporting] = useState(false);
+const STORAGE_KEY = 'awa_saved_documents';
 
-  // Load saved documents from localStorage on mount
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export default function useDocuments({
+  content,
+  documentTitle,
+  documentType,
+  tone,
+  model,
+  temperature,
+  setContent,
+  setDocumentTitle,
+  setDocumentType,
+  setTone,
+  setModel,
+  setTemperature,
+  setSuggestions,
+  setActiveTab,
+  addHistory,
+  showNotification,
+  clearDraft,
+  resetEditorHistory,
+  skipNextAutosave,
+}) {
+  const [savedDocuments, setSavedDocuments] = useState(loadFromStorage);
+
   useEffect(() => {
-    setSavedDocuments(loadDocumentsFromStorage());
-  }, []);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(savedDocuments));
+  }, [savedDocuments]);
 
-  /**
-   * Create a new document
-   */
+  const isCurrentSaved = useCallback(
+    () =>
+      savedDocuments.some(
+        (doc) =>
+          doc.title === documentTitle &&
+          doc.content === content &&
+          (doc.type || 'general') === documentType &&
+          (doc.tone || 'professional') === tone &&
+          (doc.model || '') === model
+      ),
+    [savedDocuments, documentTitle, content, documentType, tone, model]
+  );
+
+  const applyDocument = useCallback(
+    (doc) => {
+      skipNextAutosave?.();
+      setDocumentTitle(doc.title);
+      setContent(doc.content || '');
+      setDocumentType(doc.type || 'general');
+      setTone(doc.tone || 'professional');
+      if (doc.model) setModel(doc.model);
+      if (doc.temperature != null) setTemperature(doc.temperature);
+      setSuggestions([]);
+      setActiveTab('editor');
+    },
+    [
+      setContent,
+      setDocumentTitle,
+      setDocumentType,
+      setTone,
+      setModel,
+      setTemperature,
+      setSuggestions,
+      setActiveTab,
+      skipNextAutosave,
+    ]
+  );
+
   const createNewDocument = () => {
-    // Confirm if there are unsaved changes
-    if (content.trim() && !window.confirm('Are you sure you want to create a new document? Any unsaved changes will be lost.')) {
-      return;
+    if (content.trim() && !isCurrentSaved()) {
+      if (!window.confirm('You have unsaved changes. Create a new document anyway?')) return;
     }
-    
-    // Reset document state
-    setTitle('Untitled Document');
+    skipNextAutosave?.();
+    setDocumentTitle('Untitled Document');
     setContent('');
     setDocumentType('general');
     setTone('professional');
-    setCurrentDocumentId(null);
-    setHistory([]);
-    
-    // Show confirmation
-    showNotification('New document created', 'success');
+    setSuggestions([]);
+    setActiveTab('editor');
+    clearDraft?.();
+    resetEditorHistory?.();
+    addHistory('Created new document');
   };
 
-  /**
-   * Save the current document
-   * @returns {string} The ID of the saved document
-   */
   const saveDocument = () => {
-    // Generate a new ID if needed
-    const documentId = currentDocumentId || uuidv4();
-    
-    // Create document object
-    const document = {
-      id: documentId,
-      title,
+    if (!content.trim()) {
+      showNotification('Cannot save an empty document', 'error');
+      return;
+    }
+    const existingIndex = savedDocuments.findIndex((doc) => doc.title === documentTitle);
+    const date = new Date().toISOString().split('T')[0];
+    const record = {
+      title: documentTitle,
       content,
+      date,
       type: documentType,
       tone,
-      date: new Date().toLocaleDateString(),
-      lastEdited: new Date().toISOString()
+      model,
+      temperature,
     };
-    
-    // Update saved documents
-    const updatedDocuments = currentDocumentId
-      ? savedDocuments.map(doc => doc.id === currentDocumentId ? document : doc)
-      : [document, ...savedDocuments];
-    
-    // Update state and localStorage
-    setSavedDocuments(updatedDocuments);
-    saveDocumentsToStorage(updatedDocuments);
-    setCurrentDocumentId(documentId);
-    
-    // Add to history
-    const now = new Date();
-    setHistory([
-      ...history,
-      {
-        id: history.length + 1,
-        timestamp: now.toLocaleTimeString(),
-        action: currentDocumentId ? 'Document updated' : 'Document saved',
-        version: history.length + 1
-      }
-    ]);
-    
-    // Show confirmation
-    showNotification('Document saved successfully', 'success');
-    
-    return documentId;
+
+    if (existingIndex >= 0) {
+      const updated = [...savedDocuments];
+      updated[existingIndex] = { ...updated[existingIndex], ...record };
+      setSavedDocuments(updated);
+      showNotification(`"${documentTitle}" updated`, 'success');
+    } else {
+      setSavedDocuments([...savedDocuments, { id: Date.now(), ...record }]);
+      showNotification(`"${documentTitle}" saved`, 'success');
+    }
+    addHistory(`Saved document "${documentTitle}"`);
   };
 
-  /**
-   * Load a document by ID
-   * @param {string} id - The document ID to load
-   * @returns {boolean} Whether the load was successful
-   */
   const loadDocument = (id) => {
-    // Confirm if there are unsaved changes
-    if (content.trim() && currentDocumentId !== id && 
-        !window.confirm('Are you sure you want to load another document? Any unsaved changes will be lost.')) {
-      return false;
+    const doc = savedDocuments.find((d) => d.id === id);
+    if (!doc) return;
+    if (content.trim() && !isCurrentSaved()) {
+      if (!window.confirm('Discard unsaved changes and open this document?')) return;
     }
-    
-    // Find document
-    const document = savedDocuments.find(doc => doc.id === id);
-    
-    if (!document) {
-      showNotification('Document not found', 'error');
-      return false;
-    }
-    
-    // Update state
-    setTitle(document.title);
-    setContent(document.content);
-    setDocumentType(document.type || 'general');
-    setTone(document.tone || 'professional');
-    setCurrentDocumentId(id);
-    setHistory([{
-      id: 1,
-      timestamp: new Date().toLocaleTimeString(),
-      action: 'Document loaded',
-      version: 1
-    }]);
-    
-    // Show confirmation
-    showNotification(`Document "${document.title}" loaded`, 'success');
-    return true;
+    applyDocument(doc);
+    clearDraft?.();
+    resetEditorHistory?.();
+    addHistory(`Opened "${doc.title}"`);
+    showNotification(`Opened "${doc.title}"`, 'info');
   };
 
-  /**
-   * Delete a document by ID
-   * @param {string} id - The document ID to delete
-   * @returns {boolean} Whether the deletion was successful
-   */
   const deleteDocument = (id) => {
-    // Confirm deletion
-    if (!window.confirm('Are you sure you want to delete this document? This action cannot be undone.')) {
-      return false;
-    }
-    
-    // Find document
-    const document = savedDocuments.find(doc => doc.id === id);
-    
-    if (!document) {
-      showNotification('Document not found', 'error');
-      return false;
-    }
-    
-    // Update state and localStorage
-    const updatedDocuments = savedDocuments.filter(doc => doc.id !== id);
-    setSavedDocuments(updatedDocuments);
-    saveDocumentsToStorage(updatedDocuments);
-    
-    // Reset current document if it was deleted
-    if (currentDocumentId === id) {
-      setTitle('Untitled Document');
-      setContent('');
-      setCurrentDocumentId(null);
-      setHistory([]);
-    }
-    
-    // Show confirmation
-    showNotification(`Document "${document.title}" deleted`, 'success');
-    return true;
-  };
-
-  /**
-   * Export the current document
-   * @param {string} format - The format to export to ('markdown', 'pdf', 'docx')
-   * @returns {Promise<boolean>} Whether the export was successful
-   */
-  const handleExport = async (format) => {
-    if (!content.trim()) {
-      showNotification('Cannot export empty document', 'error');
-      return false;
-    }
-    
-    setIsExporting(true);
-    
-    try {
-      const blob = await convertContent(content, format, title);
-      const filename = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.${format}`;
-      
-      downloadFile(blob, filename);
-      
-      // Add to history
-      const now = new Date();
-      setHistory([
-        ...history,
-        {
-          id: history.length + 1,
-          timestamp: now.toLocaleTimeString(),
-          action: `Exported as ${format.toUpperCase()}`,
-          version: history.length + 1
-        }
-      ]);
-      
-      showNotification(`Document exported as ${format.toUpperCase()}`, 'success');
-      return true;
-    } catch (error) {
-      console.error(`Error exporting as ${format}:`, error);
-      showNotification(`Failed to export as ${format}: ${error.message}`, 'error');
-      return false;
-    } finally {
-      setIsExporting(false);
-    }
+    const doc = savedDocuments.find((d) => d.id === id);
+    if (!doc || !window.confirm(`Delete "${doc.title}"?`)) return;
+    setSavedDocuments(savedDocuments.filter((d) => d.id !== id));
+    showNotification(`Deleted "${doc.title}"`, 'info');
+    addHistory(`Deleted "${doc.title}"`);
   };
 
   return {
-    // State
-    title,
-    content,
-    documentType,
-    tone,
     savedDocuments,
-    currentDocumentId,
-    history,
-    isExporting,
-    
-    // State setters
-    setTitle,
-    setContent,
-    setDocumentType,
-    setTone,
-    setHistory,
-    
-    // Functions
     createNewDocument,
     saveDocument,
     loadDocument,
     deleteDocument,
-    handleExport
   };
-}; 
+}

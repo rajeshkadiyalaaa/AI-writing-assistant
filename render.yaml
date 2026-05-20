@@ -1,47 +1,29 @@
+# Render Blueprint — single web service (Docker): Express serves API + React build.
+# https://render.com/docs/blueprint-spec
+#
+# After connect: set OPENROUTER_API_KEY in the Render dashboard (Environment).
+# Optional: FRONTEND_URL if you use a custom domain (defaults to RENDER_EXTERNAL_URL).
+
 services:
-  # Backend API service
   - type: web
-    name: ai-writing-assistant-api
-    env: node
-    runtime: python3
-    buildCommand: npm install && cd backend && npm install && pip install -r ../requirements.txt && python ../backend/scripts/setup_nltk.py
-    startCommand: cd backend && npm start
+    name: scribe
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 5000
       - key: OPENROUTER_API_KEY
         sync: false
       - key: DEFAULT_MODEL
-        value: nvidia/llama-3.1-nemotron-nano-8b-v1:free
+        value: openrouter/free
       - key: TEMPERATURE
-        value: 0.7
+        value: "0.7"
       - key: MAX_TOKENS
-        value: 1000
+        value: "1000"
+      - key: DEBUG
+        value: "False"
       - key: LOG_LEVEL
         value: INFO
-      - key: DEBUG
-        value: false
-      - key: NLTK_DATA
-        value: /opt/render/project/src/nltk_data
-      - key: FRONTEND_URL
-        fromService:
-          name: ai-writing-assistant-frontend
-          type: web
-          property: url
-
-  # Frontend web app
-  - type: web
-    name: ai-writing-assistant-frontend
-    env: node
-    buildCommand: npm install && cd frontend && npm install && npm run build
-    startCommand: npx serve -s frontend/build
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: REACT_APP_API_URL
-        fromService:
-          name: ai-writing-assistant-api
-          type: web
-          property: url 

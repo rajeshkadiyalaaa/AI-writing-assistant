@@ -9,79 +9,66 @@ import statistics
 from typing import Dict, List, Any, Optional, Union, Tuple
 import nltk
 
-# Set up NLTK data paths
-try:
-    # First check environment variable
-    nltk_data_env = os.environ.get('NLTK_DATA')
-    if nltk_data_env:
-        print(f"Using NLTK_DATA environment variable: {nltk_data_env}", file=sys.stderr)
-        nltk.data.path.append(nltk_data_env)
-    
-    # Also add the project's nltk_data directory
-    nltk_data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'nltk_data')
-    if os.path.exists(nltk_data_dir):
-        nltk.data.path.append(nltk_data_dir)
-        print(f"Added NLTK data path: {nltk_data_dir}", file=sys.stderr)
-    
-    # Print all paths being searched
-    print(f"NLTK will search in: {nltk.data.path}", file=sys.stderr)
-except Exception as e:
-    print(f"Error setting up NLTK data paths: {str(e)}", file=sys.stderr)
+def sanitize_api_key(raw: Optional[str]) -> str:
+    """Remove invisible Unicode / whitespace from API keys (common when pasting)."""
+    if not raw:
+        return ""
+    return re.sub(
+        r"[\u0000-\u001F\u007F-\u009F\u00A0\u1680\u2000-\u200F\u200B-\u200D\u2028\u2029\u202A-\u202E\u2060-\u206F\ufeff]+",
+        "",
+        str(raw),
+    ).strip()
 
-# Create a safer version of nltk functions that don't crash on missing resources
-def safe_tokenize(text):
-    """Tokenize text safely, with fallbacks if NLTK resources are missing"""
+
+def _setup_nltk_paths() -> None:
+    nltk_data_env = os.environ.get("NLTK_DATA")
+    if nltk_data_env and os.path.isdir(nltk_data_env):
+        nltk.data.path.insert(0, nltk_data_env)
+    nltk_data_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "nltk_data",
+    )
+    if os.path.isdir(nltk_data_dir):
+        nltk.data.path.insert(0, nltk_data_dir)
+
+
+_setup_nltk_paths()
+_NLTK_SENT_TOKENIZE = None
+
+
+def _nltk_sentences_available() -> bool:
+    global _NLTK_SENT_TOKENIZE
+    if _NLTK_SENT_TOKENIZE is not None:
+        return _NLTK_SENT_TOKENIZE
+    for resource in ("tokenizers/punkt_tab", "tokenizers/punkt"):
+        try:
+            nltk.data.find(resource)
+            _NLTK_SENT_TOKENIZE = True
+            return True
+        except LookupError:
+            continue
+    _NLTK_SENT_TOKENIZE = False
+    return False
+
+
+def _regex_sent_tokenize(text: str) -> List[str]:
+    sentences = re.split(r"(?<=[.!?])\s+(?=[A-Z])", text)
+    if len(sentences) > 1:
+        return [s.strip() for s in sentences if s.strip()]
+    sentences = re.split(r"(?<=[.!?])\s+", text)
+    return [s.strip() for s in sentences if s.strip()] or [text.strip()]
+
+
+def safe_tokenize(text: str) -> List[str]:
+    """Tokenize text; uses NLTK only when punkt data is present, else regex."""
     if not text:
         return []
-        
-    try:
-        # Try using the punkt tokenizer - this is the most reliable method
-        return nltk.sent_tokenize(text)
-    except LookupError as e:
-        print(f"NLTK tokenizer error: {str(e)}", file=sys.stderr)
+    if _nltk_sentences_available():
         try:
-            # Fallback to manual download
-            print("Attempting to download punkt tokenizer...", file=sys.stderr)
-            nltk.download('punkt', quiet=False)
-            # Try again after download
             return nltk.sent_tokenize(text)
-        except Exception as e2:
-            print(f"Failed to download punkt tokenizer: {str(e2)}", file=sys.stderr)
-    except Exception as e:
-        print(f"Unexpected error in tokenization: {str(e)}", file=sys.stderr)
-    
-    # If we get here, try the regex fallback
-    print("Using regex fallback for tokenization", file=sys.stderr)
-    try:
-        # More sophisticated regex for sentence splitting
-        sentences = re.split(r'(?<=[.!?])\s+(?=[A-Z])', text)
-        if len(sentences) > 1:
-            return [s.strip() for s in sentences if s.strip()]
-        
-        # If that didn't work well, try a simpler approach
-        sentences = re.split(r'(?<=[.!?])\s+', text)
-        return [s.strip() for s in sentences if s.strip()]
-    except Exception as e:
-        print(f"Regex tokenization failed: {str(e)}", file=sys.stderr)
-        
-        # Ultimate fallback - just split by periods
-        sentences = text.split('.')
-        return [s.strip() + '.' for s in sentences if s.strip()]
-
-# Verify punkt tokenizer
-try:
-    nltk.data.find('tokenizers/punkt')
-    print("Found NLTK punkt tokenizer", file=sys.stderr)
-except LookupError:
-    print("NLTK punkt not found, attempting to download...", file=sys.stderr)
-    try:
-        nltk.download('punkt', quiet=True)
-        print("Downloaded NLTK punkt", file=sys.stderr)
-    except Exception as e:
-        print(f"Error downloading NLTK punkt: {str(e)}", file=sys.stderr)
-
-# Remove automatic punkt_tab checks which cause import errors
-# The safe_tokenize function will handle any tokenization needs safely
+        except Exception:
+            pass
+    return _regex_sent_tokenize(text)
 
 """
 Shared utility functions for AI script operations
@@ -465,9 +452,8 @@ def analyze_response_statistics(response_text: str) -> Dict[str, Any]:
     """
     # Tokenize the text for more accurate analysis
     try:
-        sentences = nltk.sent_tokenize(response_text)
-    except:
-        # Fallback if NLTK fails
+        sentences = safe_tokenize(response_text)
+    except Exception:
         sentences = re.split(r'[.!?]+', response_text)
         sentences = [s.strip() for s in sentences if s.strip()]
     
@@ -540,7 +526,7 @@ def evaluate_response_quality(response_text: str, prompt_text: str = None, expec
     ])
     
     # Coherence evaluation
-    sentences = nltk.sent_tokenize(response_text) if 'nltk' in sys.modules else re.split(r'[.!?]+', response_text)
+    sentences = safe_tokenize(response_text) if response_text else []
     sentences = [s.strip() for s in sentences if s.strip()]
     
     coherence_indicators = {

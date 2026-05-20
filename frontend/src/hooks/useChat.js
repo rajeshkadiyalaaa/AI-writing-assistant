@@ -1,199 +1,184 @@
-/**
- * Custom hook for chat management
- */
-import { useState, useRef, useEffect } from 'react';
-import { generateAIResponse as generateResponse } from '../utils/apiUtils';
-import { estimateTokens } from '../utils/documentUtils';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import api from '../api';
+import { assertApiSuccess, formatApiError, isCancelledError } from '../lib/errors';
+import { streamChatGenerate } from '../lib/streamChat';
+import { getConversationStarters } from '../constants/conversationStarters';
+import useAbortableApi from './useAbortableApi';
 
-/**
- * Custom hook for chat management
- * @param {Object} params - Parameters
- * @param {Function} params.showNotification - Function to show notifications
- * @param {string} params.model - The model to use
- * @param {string} params.documentType - The document type
- * @param {string} params.tone - The tone to use
- * @param {number} params.temperature - The temperature setting
- * @param {Function} params.getModelDisplayName - Function to get model display name
- * @param {Function} params.setHistory - Function to update history
- * @returns {Object} Chat management state and functions
- */
-export const useChat = ({ 
-  showNotification, 
-  model, 
-  documentType, 
-  tone, 
+function extractMeta(data) {
+  const stats = data.statistics || data.enhanced_data?.statistics;
+  const score = data.quality_score ?? data.enhanced_data?.quality_metrics?.overall_quality_score;
+  if (!stats && score == null) return null;
+  return {
+    wordCount: stats?.word_count,
+    qualityScore: score != null ? Math.round(score * 100) : null,
+  };
+}
+
+export default function useChat({
+  model,
+  documentType,
+  tone,
   temperature,
+  addHistory,
+  onTokenUsage,
   getModelDisplayName,
-  setHistory
-}) => {
-  // Chat state
+}) {
+  const conversationStarters = useMemo(
+    () => getConversationStarters(documentType),
+    [documentType]
+  );
   const [chatMessages, setChatMessages] = useState([]);
   const [messageInput, setMessageInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
-  const [typingText, setTypingText] = useState('');
-  const [fullResponse, setFullResponse] = useState('');
-  const [typingSpeed, setTypingSpeed] = useState(5); // ms per character
-  const [tokenUsage, setTokenUsage] = useState({ count: 0, cost: 0 });
-  
-  // Refs
   const chatEndRef = useRef(null);
+  const lastTurnRef = useRef(null);
+  const abortApi = useAbortableApi();
 
-  // Auto-scroll to the bottom of chat when new messages arrive
   useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [chatMessages, typingText]);
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
 
-  // Typing animation effect
-  useEffect(() => {
-    if (isTyping && fullResponse) {
-      if (typingText.length < fullResponse.length) {
-        const timeout = setTimeout(() => {
-          setTypingText(fullResponse.substring(0, typingText.length + 1));
-        }, typingSpeed);
-        return () => clearTimeout(timeout);
-      } else {
-        setIsTyping(false);
-        finishTypingAnimation();
-      }
-    }
-  }, [typingText, isTyping, fullResponse, typingSpeed]);
-
-  /**
-   * Finish typing animation and add the message to the chat
-   */
-  const finishTypingAnimation = () => {
-    // Update the last message with the full text
-    const updatedMessages = [...chatMessages];
-    if (updatedMessages.length > 0 && updatedMessages[updatedMessages.length - 1].isTyping) {
-      updatedMessages[updatedMessages.length - 1] = {
-        role: 'assistant',
-        content: fullResponse
-      };
-      setChatMessages(updatedMessages);
-    }
-    setFullResponse('');
-    setTypingText('');
-  };
-
-  /**
-   * Update token usage
-   * @param {number} messageCount - The number of messages
-   * @param {number} responseLength - The length of the response
-   */
-  const updateTokenUsage = (messageCount, responseLength) => {
-    // Estimate tokens in the response
-    const tokens = estimateTokens(responseLength) + (messageCount * 4);
-    
-    // Update usage
-    setTokenUsage(prev => ({
-      count: prev.count + tokens,
-      cost: prev.cost + (tokens * 0.000002) // Simple cost estimate
-    }));
-  };
-
-  /**
-   * Generate an AI response
-   * @returns {Promise<boolean>} Whether the generation was successful
-   */
-  const generateAIResponse = async () => {
-    if (!messageInput.trim()) return false;
-    
-    // Add user message to chat
-    const userMessage = { role: 'user', content: messageInput };
-    const updatedMessages = [...chatMessages, userMessage];
-    setChatMessages(updatedMessages);
-    setMessageInput('');
-    
-    try {
-      setIsGenerating(true);
-      
-      // Add a temporary typing indicator message
-      const messagesWithTyping = [...updatedMessages, { role: 'assistant', isTyping: true, content: '' }];
-      setChatMessages(messagesWithTyping);
-      
-      // Call backend API with the current document type and tone settings
-      const response = await generateResponse(
-        updatedMessages,
+  const sendChatTurn = useCallback(
+    async (updatedMessages, signal) => {
+      const payload = {
+        messages: updatedMessages,
         model,
         documentType,
         tone,
-        temperature
-      );
-      
-      // Get the response text
-      const responseText = response.response || "I'm not sure how to respond to that. Can you try rephrasing?";
-      
-      // Update token usage estimate
-      updateTokenUsage(updatedMessages.length, responseText);
-      
-      // Start the animation with the typing indicator still in the chat
-      setFullResponse(responseText);
-      setTypingText('');
-      setIsTyping(true);
-      
-      // Add to history
-      const now = new Date();
-      setHistory(prev => [...prev, {
-        id: prev.length + 1,
-        timestamp: now.toLocaleTimeString(),
-        action: `Chat with ${getModelDisplayName(model)} (${documentType}, ${tone})`,
-        version: prev.length + 1
-      }]);
-      
-      return true;
-    } catch (error) {
-      console.error('Error generating AI response:', error);
-      // Add error message to chat
-      setChatMessages([...updatedMessages, {
-        role: 'assistant', 
-        content: 'Sorry, I encountered an error. Please try again.'
-      }]);
-      
-      showNotification('Failed to generate AI response: ' + (error.message || 'Unknown error'), 'error');
-      return false;
+        temperature,
+      };
+
+      let streamed = '';
+      let usageFromStream = null;
+
+      const applyStreamChunk = (full) => {
+        streamed = full;
+        setChatMessages((prev) => {
+          const copy = [...prev];
+          copy[copy.length - 1] = { role: 'assistant', content: full, streaming: true };
+          return copy;
+        });
+      };
+
+      try {
+        await streamChatGenerate(payload, {
+          signal,
+          onChunk: applyStreamChunk,
+          onUsage: (u) => {
+            usageFromStream = u;
+          },
+        });
+      } catch (streamErr) {
+        if (isCancelledError(streamErr)) throw streamErr;
+        const response = await api.generate(payload, { signal });
+        const data = assertApiSuccess(response);
+        streamed = data.response || "I'm not sure how to respond to that. Can you try rephrasing?";
+        usageFromStream = data.usage;
+        const meta = extractMeta(data);
+        onTokenUsage?.(usageFromStream, updatedMessages.length, streamed);
+        setChatMessages((prev) => {
+          const copy = [...prev];
+          copy[copy.length - 1] = { role: 'assistant', content: streamed, meta };
+          return copy;
+        });
+        addHistory(`Chat with ${getModelDisplayName(model)} (${documentType}, ${tone})`);
+        return;
+      }
+
+      if (!streamed.trim()) {
+        streamed = "I'm not sure how to respond to that. Can you try rephrasing?";
+      }
+
+      onTokenUsage?.(usageFromStream, updatedMessages.length, streamed);
+      setChatMessages((prev) => {
+        const copy = [...prev];
+        copy[copy.length - 1] = { role: 'assistant', content: streamed };
+        return copy;
+      });
+      addHistory(`Chat with ${getModelDisplayName(model)} (${documentType}, ${tone})`);
+    },
+    [model, documentType, tone, temperature, addHistory, onTokenUsage, getModelDisplayName]
+  );
+
+  const runTurn = useCallback(
+    async (updatedMessages) => {
+      lastTurnRef.current = updatedMessages;
+      await abortApi.run((signal) => sendChatTurn(updatedMessages, signal));
+    },
+    [abortApi, sendChatTurn]
+  );
+
+  const generateAIResponse = async () => {
+    if (!messageInput.trim() || isGenerating) return;
+
+    const userMessage = { role: 'user', content: messageInput };
+    const updatedMessages = [...chatMessages, userMessage];
+    setChatMessages([...updatedMessages, { role: 'assistant', content: '', streaming: true }]);
+    setMessageInput('');
+    setIsGenerating(true);
+    abortApi.clearError();
+
+    try {
+      await runTurn(updatedMessages);
+    } catch (err) {
+      if (isCancelledError(err)) {
+        setChatMessages(updatedMessages);
+        return;
+      }
+      setChatMessages([
+        ...updatedMessages,
+        { role: 'assistant', content: `Sorry — ${formatApiError(err)}`, isError: true },
+      ]);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  /**
-   * Clear the chat messages
-   */
-  const clearChat = () => {
-    if (chatMessages.length > 0 && window.confirm('Are you sure you want to clear all chat messages?')) {
-      setChatMessages([]);
-      showNotification('Chat cleared', 'info');
+  const retryLast = async () => {
+    const updatedMessages = lastTurnRef.current;
+    if (!updatedMessages || isGenerating) return;
+
+    setChatMessages([...updatedMessages, { role: 'assistant', content: '', streaming: true }]);
+    setIsGenerating(true);
+    abortApi.clearError();
+
+    try {
+      await abortApi.retry();
+    } catch (err) {
+      if (!isCancelledError(err)) {
+        setChatMessages([
+          ...updatedMessages,
+          { role: 'assistant', content: `Sorry — ${formatApiError(err)}`, isError: true },
+        ]);
+      }
+    } finally {
+      setIsGenerating(false);
     }
   };
 
-  /**
-   * Insert a conversation starter
-   * @param {string} starter - The conversation starter to insert
-   */
-  const selectConversationStarter = (starter) => {
-    setMessageInput(starter);
+  const clearChat = () => {
+    abortApi.cancel();
+    setIsGenerating(false);
+    setChatMessages([]);
+    lastTurnRef.current = null;
   };
 
   return {
-    // State
     chatMessages,
-    messageInput,
-    isGenerating,
-    isTyping,
-    typingText,
-    tokenUsage,
-    chatEndRef,
-    
-    // State setters
-    setMessageInput,
     setChatMessages,
-    
-    // Functions
+    messageInput,
+    setMessageInput,
+    isGenerating,
     generateAIResponse,
     clearChat,
-    selectConversationStarter
+    conversationStarters,
+    selectConversationStarter: (starter) => setMessageInput(starter),
+    chatEndRef,
+    cancelRequest: abortApi.cancel,
+    retryRequest: retryLast,
+    requestIsSlow: abortApi.isSlow,
+    requestError: abortApi.lastError,
+    canRetryRequest: Boolean(lastTurnRef.current && abortApi.lastError),
   };
-}; 
+};
