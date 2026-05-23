@@ -592,6 +592,7 @@ function maskApiKey(apiKey) {
 
 // Health check endpoint for debugging deployment issues
 app.get('/api/health', (req, res) => {
+  const isProd = process.env.NODE_ENV === 'production';
   res.status(200).json({
     status: 'ok',
     time: new Date().toISOString(),
@@ -599,6 +600,7 @@ app.get('/api/health', (req, res) => {
     version: '1.0.0',
     python: PYTHON_BIN,
     apiKeyConfigured: Boolean(process.env.OPENROUTER_API_KEY),
+    allowUiApiKeySave: !isProd || process.env.ALLOW_UI_API_KEY === 'true',
   });
 });
 

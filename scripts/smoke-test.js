@@ -37,8 +37,49 @@ async function main() {
     } else {
       fail('health missing apiKeyConfigured');
     }
+    if (typeof data.allowUiApiKeySave === 'boolean') {
+      pass('health includes allowUiApiKeySave');
+    } else {
+      fail('health missing allowUiApiKeySave');
+    }
   } catch (e) {
     fail(`Cannot reach backend at ${BASE} — is it running? (${e.message})`);
+  }
+
+  try {
+    const getRes = await fetch(`${BASE}/api/settings/apikey`);
+    const getData = await getRes.json();
+    if (!getRes.ok || typeof getData.isSet !== 'boolean') {
+      fail('GET /api/settings/apikey invalid response');
+    } else {
+      pass(`GET /api/settings/apikey (isSet=${getData.isSet})`);
+    }
+
+    const emptyRes = await fetch(`${BASE}/api/settings/apikey`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey: '' }),
+    });
+    const emptyData = await emptyRes.json();
+    if (emptyRes.status === 400 && emptyData.error) {
+      pass('POST /api/settings/apikey rejects empty key');
+    } else {
+      fail(`POST /api/settings/apikey empty: expected 400, got ${emptyRes.status}`);
+    }
+
+    const badRes = await fetch(`${BASE}/api/settings/apikey`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey: 'not-a-valid-key' }),
+    });
+    const badData = await badRes.json();
+    if (badRes.status === 400 && badData.error) {
+      pass('POST /api/settings/apikey rejects invalid key format');
+    } else {
+      fail(`POST /api/settings/apikey invalid: expected 400, got ${badRes.status}`);
+    }
+  } catch (e) {
+    fail(`/api/settings/apikey: ${e.message}`);
   }
 
   try {

@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  PenTool, Save, Download, Settings, FileText, Sun, Moon,
+  PenTool, Save, Download, Settings, FileText,
   AlertTriangle, Key, MessageCircle, Sparkles, SlidersHorizontal, Check, AlertCircle, Info,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
@@ -17,7 +17,6 @@ import { headerLogoClassName } from '../../constants/branding';
 
 export default function WritingStudioView({ p }) {
   const {
-    isDarkMode,
     isDraggingLeft,
     isDraggingRight,
     apiKeySet,
@@ -54,7 +53,6 @@ export default function WritingStudioView({ p }) {
     showSettingsMenu,
     setShowSettingsMenu,
     settingsMenuRef,
-    toggleDarkMode,
     showUsageStats,
     setShowUsageStats,
     tokenUsage,
@@ -145,6 +143,7 @@ export default function WritingStudioView({ p }) {
     updateApiKey,
     copyToClipboard,
     isProd,
+    canSaveApiKeyViaUi,
     showNotification,
     showToast,
     toastMessage,
@@ -157,7 +156,6 @@ export default function WritingStudioView({ p }) {
     <div
       className={cn(
         'studio-shell',
-        isDarkMode && 'dark',
         (isDraggingLeft || isDraggingRight) && 'no-select'
       )}
     >
@@ -174,7 +172,7 @@ export default function WritingStudioView({ p }) {
       )}
 
       {!apiKeySet && (
-        <div className="flex shrink-0 items-center justify-center gap-2 bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:bg-amber-950/60 dark:text-amber-100">
+        <div className="flex shrink-0 items-center justify-center gap-2 bg-amber-50 px-4 py-2 text-sm text-amber-900">
           <AlertTriangle size={16} />
           <span>No API key configured.</span>
           <button type="button" onClick={() => setShowApiKeyModal(true)} className="font-semibold underline">
@@ -183,7 +181,7 @@ export default function WritingStudioView({ p }) {
         </div>
       )}
 
-      <header className="relative z-50 flex shrink-0 items-center gap-2 border-b border-zinc-200/80 bg-white/80 px-3 py-2 backdrop-blur-md dark:border-zinc-800 dark:bg-surface-900/80 sm:px-4 sm:py-3">
+      <header className="relative z-50 flex shrink-0 items-center gap-2 border-b border-zinc-200/80 bg-white/80 px-3 py-2 backdrop-blur-md sm:px-4 sm:py-3">
         <button
           type="button"
           className="btn-icon lg:hidden"
@@ -205,10 +203,10 @@ export default function WritingStudioView({ p }) {
             type="text"
             value={documentTitle}
             onChange={(e) => setDocumentTitle(e.target.value)}
-            className="min-w-0 flex-1 truncate bg-transparent font-display text-base font-semibold text-zinc-900 focus:outline-none dark:text-zinc-50 sm:text-lg"
+            className="min-w-0 flex-1 truncate bg-transparent font-display text-base font-semibold text-zinc-900 focus:outline-none sm:text-lg"
           />
           {docMeta && (
-            <span className="hidden shrink-0 items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-1 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 sm:flex">
+            <span className="hidden shrink-0 items-center gap-1 rounded-full bg-zinc-100 px-2.5 py-1 text-xs text-zinc-600 sm:flex">
               {docMeta.icon}
               {docMeta.name}
             </span>
@@ -234,7 +232,7 @@ export default function WritingStudioView({ p }) {
                     key={fmt}
                     type="button"
                     onClick={() => { handleExport(fmt); setShowExportMenu(false); }}
-                    className="block w-full px-4 py-2 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                    className="block w-full px-4 py-2 text-left text-sm hover:bg-zinc-50"
                   >
                     {fmt === 'markdown' ? 'Markdown' : fmt.toUpperCase()}
                   </button>
@@ -250,18 +248,12 @@ export default function WritingStudioView({ p }) {
             {showSettingsMenu && (
               <div ref={settingsMenuRef} className="studio-panel absolute right-0 top-full z-[60] mt-1 w-64 p-4 animate-fade-in">
                 <p className="mb-3 text-sm font-medium">Preferences</p>
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-sm text-zinc-600 dark:text-zinc-400">Dark mode</span>
-                  <button type="button" onClick={toggleDarkMode} className="btn-icon">
-                    {isDarkMode ? <Moon size={18} /> : <Sun size={18} />}
-                  </button>
-                </div>
                 <div className="mb-3">
                   <button type="button" onClick={() => setShowUsageStats(!showUsageStats)} className="text-xs text-accent hover:underline">
                     {showUsageStats ? 'Hide' : 'Show'} token usage
                   </button>
                   {showUsageStats && (
-                    <div className="mt-2 rounded-lg bg-zinc-50 p-2 text-xs dark:bg-zinc-800">
+                    <div className="mt-2 rounded-lg bg-zinc-50 p-2 text-xs">
                       <div className="flex justify-between"><span>Total</span><span>{tokenUsage.total.total.toLocaleString()}</span></div>
                       <div className="flex justify-between"><span>Last</span><span>{tokenUsage.last.total.toLocaleString()}</span></div>
                       <div className="flex justify-between"><span>Est. cost</span><span>${estimateCost(tokenUsage.total.total, model).toFixed(4)}</span></div>
@@ -282,10 +274,6 @@ export default function WritingStudioView({ p }) {
               </div>
             )}
           </div>
-
-          <button type="button" onClick={toggleDarkMode} className="btn-icon sm:hidden">
-            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
 
           <button
             type="button"
@@ -481,7 +469,7 @@ export default function WritingStudioView({ p }) {
         )}
       </div>
 
-      <nav className="flex shrink-0 border-t border-zinc-200/80 bg-white/90 backdrop-blur-md dark:border-zinc-800 dark:bg-surface-900/90 lg:hidden">
+      <nav className="flex shrink-0 border-t border-zinc-200/80 bg-white/90 backdrop-blur-md lg:hidden">
         <button
           type="button"
           onClick={() => { setActiveTab('editor'); setMobilePanel(null); }}
@@ -538,6 +526,7 @@ export default function WritingStudioView({ p }) {
         onTest={testApiKey}
         onSave={updateApiKey}
         isProd={isProd}
+        canSaveApiKeyViaUi={canSaveApiKeyViaUi}
       />
 
       <CustomModelModal
@@ -579,9 +568,9 @@ export default function WritingStudioView({ p }) {
         <div
           className={cn(
             'fixed bottom-20 right-4 z-[70] flex max-w-sm items-center gap-2 rounded-xl px-4 py-3 shadow-panel animate-slide-up sm:bottom-6',
-            toastType === 'success' && 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200',
-            toastType === 'error' && 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200',
-            toastType === 'info' && 'bg-blue-50 text-blue-800 dark:bg-blue-950 dark:text-blue-200'
+            toastType === 'success' && 'bg-emerald-50 text-emerald-800',
+            toastType === 'error' && 'bg-red-50 text-red-800',
+            toastType === 'info' && 'bg-blue-50 text-blue-800'
           )}
         >
           {toastType === 'success' && <Check size={18} />}

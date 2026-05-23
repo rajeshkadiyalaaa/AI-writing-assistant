@@ -19,8 +19,8 @@ export default function RequestStatusBar({
       className={cn(
         'flex shrink-0 items-center justify-between gap-3 border-b px-4 py-2 text-sm',
         error
-          ? 'border-red-200/80 bg-red-50 text-red-900 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-100'
-          : 'border-amber-200/80 bg-amber-50 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100',
+          ? 'border-red-200/80 bg-red-50 text-red-900'
+          : 'border-amber-200/80 bg-amber-50 text-amber-950',
         className
       )}
     >

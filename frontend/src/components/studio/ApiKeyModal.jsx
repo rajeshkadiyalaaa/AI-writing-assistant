@@ -23,6 +23,7 @@ export default function ApiKeyModal({
   onTest,
   onSave,
   isProd = false,
+  canSaveApiKeyViaUi = true,
 }) {
   if (!open) return null;
 
@@ -31,15 +32,15 @@ export default function ApiKeyModal({
       <button type="button" className="absolute inset-0 bg-zinc-900/50 backdrop-blur-sm" onClick={onClose} aria-label="Close" />
       <div className="studio-panel relative z-10 w-full max-w-lg animate-slide-up p-6 sm:p-8" role="dialog" aria-modal="true">
         <div className="mb-6">
-          <h2 className="font-display text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+          <h2 className="font-display text-2xl font-semibold text-zinc-900">
             {apiKeySet ? 'Update API key' : 'Connect OpenRouter'}
           </h2>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-sm text-zinc-500">
             Your key powers AI writing, chat, and suggestions.
           </p>
         </div>
 
-        <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <label className="mb-2 block text-sm font-medium text-zinc-700">
           API key
           <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="ml-2 text-accent hover:underline">
             Get a key →
@@ -78,32 +79,34 @@ export default function ApiKeyModal({
           </div>
         </div>
 
-        {apiKeyError && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{apiKeyError}</p>}
+        {apiKeyError && <p className="mb-3 text-sm text-red-600">{apiKeyError}</p>}
 
         <button
           type="button"
           onClick={onTest}
           disabled={isTestingApiKey || !apiKeyInput.trim() || !apiKeyInput.startsWith('sk-or-')}
-          className={cn('btn-secondary mb-4 w-full sm:w-auto', apiKeyTestSuccess && 'border-emerald-300 text-emerald-700 dark:text-emerald-400')}
+          className={cn('btn-secondary mb-4 w-full sm:w-auto', apiKeyTestSuccess && 'border-emerald-300 text-emerald-700')}
         >
           {isTestingApiKey ? <Loader size={16} className="animate-spin" /> : apiKeyTestSuccess ? <Check size={16} /> : <Shield size={16} />}
           {apiKeyTestSuccess ? 'Verified' : 'Test connection'}
         </button>
 
-        <div className="mb-5 rounded-xl bg-indigo-50 p-4 text-sm text-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-200">
+        <div className="mb-5 rounded-xl bg-indigo-50 p-4 text-sm text-indigo-900">
           <div className="flex gap-2">
             <Info size={16} className="mt-0.5 shrink-0" />
             <p>
-              {isProd
-                ? 'Keys are stored on the server process only (set OPENROUTER_API_KEY in .env for persistence across restarts).'
-                : 'For local dev, the key is sent to your backend. Optional browser storage is for convenience only.'}
+              {isProd && !canSaveApiKeyViaUi
+                ? 'In production, set OPENROUTER_API_KEY in the server .env (Render/host dashboard). The UI cannot save keys on this deployment.'
+                : isProd
+                  ? 'Keys are stored on the server process only (set OPENROUTER_API_KEY in .env for persistence across restarts).'
+                  : 'For local dev, the key is sent to your backend. Optional browser storage is for convenience only.'}
             </p>
           </div>
         </div>
 
         {!isProd && (
           <>
-            <label className="mb-4 flex cursor-pointer items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+            <label className="mb-4 flex cursor-pointer items-center gap-2 text-sm text-zinc-600">
               <input type="checkbox" checked={rememberKey} onChange={(e) => setRememberKey(e.target.checked)} className="rounded border-zinc-300 text-accent focus:ring-accent" />
               Remember in browser (dev only)
               <button type="button" onClick={() => setShowSecurityInfo(!showSecurityInfo)} className="btn-icon h-7 w-7">
@@ -111,12 +114,12 @@ export default function ApiKeyModal({
               </button>
             </label>
             {rememberKey && (
-              <p className="mb-3 text-xs text-amber-800 dark:text-amber-200/90">
+              <p className="mb-3 text-xs text-amber-800">
                 The key is stored in browser localStorage as plain text — anyone with access to this device can read it. Do not use on shared computers.
               </p>
             )}
             {showSecurityInfo && (
-              <p className="mb-4 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mb-4 text-xs text-zinc-500">
                 Not recommended for shared machines. Production should use server .env only.
               </p>
             )}
@@ -128,7 +131,12 @@ export default function ApiKeyModal({
           <button
             type="button"
             onClick={onSave}
-            disabled={isUpdatingApiKey || !apiKeyInput.trim() || !apiKeyInput.startsWith('sk-or-')}
+            disabled={
+              isUpdatingApiKey
+              || !canSaveApiKeyViaUi
+              || !apiKeyInput.trim()
+              || !apiKeyInput.startsWith('sk-or-')
+            }
             className="btn-primary"
           >
             {isUpdatingApiKey ? <><Loader size={16} className="animate-spin" /> Saving…</> : 'Save API key'}

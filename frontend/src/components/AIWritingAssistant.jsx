@@ -9,7 +9,6 @@ import {
 import { EMPTY_USAGE, mergeUsage, normalizeUsage, estimateUsageFromText } from '../lib/tokenUsage';
 import useToast from '../hooks/useToast';
 import useApiKey from '../hooks/useApiKey';
-import useDarkMode from '../hooks/useDarkMode';
 import usePanelResize from '../hooks/usePanelResize';
 import useDocuments from '../hooks/useDocuments';
 import useChat from '../hooks/useChat';
@@ -43,7 +42,6 @@ const TONE_OPTIONS = ['professional', 'casual', 'formal'];
 export default function AIWritingAssistant() {
   const { showToast, toastMessage, toastType, showNotification } = useToast();
   const apiKey = useApiKey(showNotification);
-  const { isDarkMode, toggleDarkMode } = useDarkMode(showNotification);
   const panel = usePanelResize();
 
   const [content, setContent] = useState('');
@@ -240,7 +238,7 @@ export default function AIWritingAssistant() {
   const isRecommendedModelFn = (id) => checkRecommendedModel(id, documentType, models.modelOptions);
   const estimateCostFn = (tokens, id) => estimateModelCost(tokens, id, models.modelOptions);
   const renderApiKeyPrompt = () => (
-    <ApiKeyPrompt isDarkMode={isDarkMode} onOpenModal={() => apiKey.setShowApiKeyModal(true)} />
+    <ApiKeyPrompt onOpenModal={() => apiKey.setShowApiKeyModal(true)} />
   );
   const isGenerating = chat.isGenerating || suggestions.isGenerating;
   const activeRequest = chat.isGenerating
@@ -266,7 +264,6 @@ export default function AIWritingAssistant() {
   return (
     <WritingStudioView
       p={{
-        isDarkMode,
         isDraggingLeft: panel.isDraggingLeft,
         isDraggingRight: panel.isDraggingRight,
         apiKeySet: apiKey.apiKeySet,
@@ -305,7 +302,6 @@ export default function AIWritingAssistant() {
         showSettingsMenu,
         setShowSettingsMenu,
         settingsMenuRef,
-        toggleDarkMode,
         showUsageStats,
         setShowUsageStats,
         usageStatsRef,
@@ -397,6 +393,7 @@ export default function AIWritingAssistant() {
         updateApiKey: apiKey.updateApiKey,
         copyToClipboard: apiKey.copyToClipboard,
         isProd: apiKey.isProd,
+        canSaveApiKeyViaUi: apiKey.canSaveApiKeyViaUi,
         showNotification,
         showToast,
         toastMessage,

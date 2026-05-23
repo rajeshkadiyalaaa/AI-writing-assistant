@@ -3,9 +3,9 @@ import { RefreshCw, PenTool, Check, Trash2, Loader, X, Sparkles } from 'lucide-r
 import { cn } from '../../lib/cn';
 
 const typeStyles = {
-  grammar: 'bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300',
-  improvement: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300',
-  alternative: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
+  grammar: 'bg-red-100 text-red-700',
+  improvement: 'bg-blue-100 text-blue-700',
+  alternative: 'bg-emerald-100 text-emerald-700',
 };
 
 export default function AssistPanel({
@@ -26,14 +26,14 @@ export default function AssistPanel({
   return (
     <aside
       className={cn(
-        'flex h-full flex-col border-zinc-200/80 bg-white/50 dark:border-zinc-800 dark:bg-surface-900/50',
+        'flex h-full flex-col border-zinc-200/80 bg-white/50',
         isMobile ? 'drawer-panel right-0 border-l' : 'border-l'
       )}
     >
-      <div className="flex items-center justify-between border-b border-zinc-200/80 px-4 py-3 dark:border-zinc-800">
+      <div className="flex items-center justify-between border-b border-zinc-200/80 px-4 py-3">
         <div className="flex items-center gap-2">
           <Sparkles size={18} className="text-accent" />
-          <h2 className="font-display text-sm font-semibold text-zinc-900 dark:text-zinc-50">AI Assist</h2>
+          <h2 className="font-display text-sm font-semibold text-zinc-900">AI Assist</h2>
         </div>
         {isMobile && (
           <button type="button" onClick={onClose} className="btn-icon" aria-label="Close assist panel">
@@ -44,8 +44,8 @@ export default function AssistPanel({
 
       <div className="flex-1 overflow-y-auto p-4">
         {suggestions.length === 0 && !isGenerating && apiKeySet && (
-          <div className="mb-4 rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-3 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-400">
-            <p className="mb-2 font-semibold text-zinc-700 dark:text-zinc-300">What each action does</p>
+          <div className="mb-4 rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-3 text-xs text-zinc-600">
+            <p className="mb-2 font-semibold text-zinc-700">What each action does</p>
             <ul className="space-y-1.5 list-disc pl-4">
               <li><strong>Review draft</strong> — numbered feedback (grammar, style, clarity).</li>
               <li><strong>Rewrite for clarity</strong> — full pass with before/after compare.</li>
@@ -70,7 +70,7 @@ export default function AssistPanel({
         ) : isGenerating ? (
           <div className="flex flex-col items-center py-16 text-center">
             <Loader size={32} className="animate-spin text-accent" />
-            <p className="mt-4 font-medium text-zinc-700 dark:text-zinc-300">Analyzing your draft…</p>
+            <p className="mt-4 font-medium text-zinc-700">Analyzing your draft…</p>
             <p className="mt-1 text-xs text-zinc-500">This usually takes a few seconds</p>
           </div>
         ) : (
@@ -95,12 +95,12 @@ export default function AssistPanel({
                     </button>
                   </div>
                 </div>
-                <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
+                <p className="text-sm leading-relaxed text-zinc-700">
                   {s.summary && s.summary !== s.text ? s.summary : s.text}
                 </p>
                 {s.search && (
                   <p className="mt-2 text-xs text-zinc-500">
-                    Find: <span className="font-medium text-zinc-600 dark:text-zinc-400">“{s.search}”</span>
+                    Find: <span className="font-medium text-zinc-600">“{s.search}”</span>
                   </p>
                 )}
               </li>
@@ -109,7 +109,7 @@ export default function AssistPanel({
         )}
       </div>
 
-      <div className="shrink-0 space-y-2 border-t border-zinc-200/80 p-4 dark:border-zinc-800">
+      <div className="shrink-0 space-y-2 border-t border-zinc-200/80 p-4">
         <button
           type="button"
           onClick={generateSuggestions}

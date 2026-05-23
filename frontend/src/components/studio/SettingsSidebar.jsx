@@ -52,7 +52,7 @@ export default function SettingsSidebar({
   return (
     <aside className={cn('flex h-full flex-col', isMobile && 'drawer-panel left-0')}>
       {isMobile && (
-        <div className="flex items-center justify-between border-b border-zinc-200/80 px-4 py-3 dark:border-zinc-800">
+        <div className="flex items-center justify-between border-b border-zinc-200/80 px-4 py-3">
           <h2 className="font-display text-lg font-semibold">Settings</h2>
           <button type="button" onClick={onClose} className="btn-icon" aria-label="Close settings">
             <X size={18} />
@@ -60,7 +60,7 @@ export default function SettingsSidebar({
         </div>
       )}
 
-      <div className="flex gap-1 border-b border-zinc-200/80 p-2 dark:border-zinc-800">
+      <div className="flex gap-1 border-b border-zinc-200/80 p-2">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -103,7 +103,7 @@ export default function SettingsSidebar({
                 </button>
               </div>
               {showModelInfo && (
-                <p className="mb-2 rounded-lg bg-zinc-50 p-2 text-xs text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-400">
+                <p className="mb-2 rounded-lg bg-zinc-50 p-2 text-xs text-zinc-600">
                   Three free models from OpenRouter — one per writing task. ✓ matches your document type.
                   {modelsSource === 'openrouter' ? ' List refreshes every few hours.' : ' Using offline fallback.'}
                 </p>
@@ -144,16 +144,16 @@ export default function SettingsSidebar({
               </select>
               <p className="mt-2 text-xs text-zinc-500">
                 {getModelDisplayName(model)}
-                {isRecommendedModel(model) && <span className="ml-1 text-emerald-600 dark:text-emerald-400">· Recommended</span>}
+                {isRecommendedModel(model) && <span className="ml-1 text-emerald-600">· Recommended</span>}
               </p>
 
-              <label className="group mt-3 flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-zinc-200/80 bg-white px-3 py-2.5 transition-colors hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900/40 dark:hover:border-zinc-600">
+              <label className="group mt-3 flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-zinc-200/80 bg-white px-3 py-2.5 transition-colors hover:border-zinc-300">
                 <div className="min-w-0 flex-1">
-                  <span className="flex items-center gap-1.5 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                  <span className="flex items-center gap-1.5 text-sm font-medium text-zinc-800">
                     <Sparkles size={14} className="shrink-0 text-accent" />
                     Auto-pick model
                   </span>
-                  <span className="mt-0.5 block text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+                  <span className="mt-0.5 block text-[11px] leading-snug text-zinc-500">
                     Match the best free model to your document type
                   </span>
                 </div>
@@ -167,8 +167,8 @@ export default function SettingsSidebar({
                   <span
                     className={cn(
                       'absolute inset-0 rounded-full transition-colors',
-                      'bg-zinc-200 dark:bg-zinc-600',
-                      'peer-focus-visible:ring-2 peer-focus-visible:ring-accent/40 peer-focus-visible:ring-offset-2 dark:peer-focus-visible:ring-offset-zinc-900',
+                      'bg-zinc-200',
+                      'peer-focus-visible:ring-2 peer-focus-visible:ring-accent/40 peer-focus-visible:ring-offset-2',
                       'peer-checked:bg-accent'
                     )}
                     aria-hidden
@@ -227,39 +227,39 @@ export default function SettingsSidebar({
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-lg border border-zinc-200/80 dark:border-zinc-700">
+            <div className="overflow-hidden rounded-lg border border-zinc-200/80">
               <button
                 type="button"
                 onClick={onOpenApiKeyModal}
-                className="flex w-full items-center gap-3 p-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                className="flex w-full items-center gap-3 p-3 text-left transition-colors hover:bg-zinc-50"
               >
                 <span
                   className={cn(
                     'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
                     apiKeySet
-                      ? 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400'
-                      : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
+                      ? 'bg-emerald-500/10 text-emerald-600'
+                      : 'bg-zinc-100 text-zinc-500'
                   )}
                 >
                   {apiKeySet ? <CheckCircle2 size={20} /> : <Key size={20} />}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  <span className="block text-sm font-medium text-zinc-900">
                     {apiKeySet ? 'API key connected' : 'Connect API key'}
                   </span>
                   {apiKeySet ? (
                     maskedApiKey ? (
-                      <span className="mt-0.5 block truncate font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+                      <span className="mt-0.5 block truncate font-mono text-[11px] text-zinc-500">
                         {maskedApiKey}
                       </span>
                     ) : (
-                      <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400">
+                      <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-emerald-600">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                         Ready for AI requests
                       </span>
                     )
                   ) : (
-                    <span className="mt-0.5 block text-[11px] text-zinc-500 dark:text-zinc-400">
+                    <span className="mt-0.5 block text-[11px] text-zinc-500">
                       OpenRouter key required for chat & assist
                     </span>
                   )}
@@ -276,7 +276,7 @@ export default function SettingsSidebar({
 
         {activeSidebarTab === 'documents' && (
           <div>
-            <h3 className="mb-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">Saved documents</h3>
+            <h3 className="mb-3 text-sm font-medium text-zinc-700">Saved documents</h3>
             {savedDocuments.length === 0 ? (
               <p className="text-sm italic text-zinc-500">Nothing saved yet. Use Save in the editor toolbar.</p>
             ) : (
@@ -284,14 +284,14 @@ export default function SettingsSidebar({
                 {savedDocuments.map((doc) => (
                   <li
                     key={doc.id}
-                    className="flex items-start justify-between gap-2 rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-3 dark:border-zinc-700 dark:bg-zinc-800/40"
+                    className="flex items-start justify-between gap-2 rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-3"
                   >
                     <button
                       type="button"
                       onClick={() => loadDocument(doc.id)}
                       className="min-w-0 flex-1 text-left"
                     >
-                      <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{doc.title}</p>
+                      <p className="truncate text-sm font-medium text-zinc-900">{doc.title}</p>
                       <p className="text-[11px] text-zinc-500">
                         {doc.date} · {doc.type}
                         {doc.tone ? ` · ${doc.tone}` : ''}
@@ -315,7 +315,7 @@ export default function SettingsSidebar({
         {activeSidebarTab === 'history' && (
           <div className="space-y-6">
             <div>
-              <h3 className="mb-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">Restorable versions</h3>
+              <h3 className="mb-3 text-sm font-medium text-zinc-700">Restorable versions</h3>
               {!editorVersions || editorVersions.length === 0 ? (
                 <p className="text-sm italic text-zinc-500">
                   Versions appear after AI improve or apply. Use Undo in the editor toolbar meanwhile.
@@ -325,10 +325,10 @@ export default function SettingsSidebar({
                   {[...editorVersions].reverse().map((v) => (
                     <li
                       key={v.id}
-                      className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-3 text-xs dark:border-zinc-700 dark:bg-zinc-800/40"
+                      className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-3 text-xs"
                     >
                       <div>
-                        <p className="font-medium text-zinc-800 dark:text-zinc-200">{v.label}</p>
+                        <p className="font-medium text-zinc-800">{v.label}</p>
                         <p className="text-zinc-500">{v.timestamp}</p>
                       </div>
                       <button
@@ -344,14 +344,14 @@ export default function SettingsSidebar({
               )}
             </div>
             <div>
-              <h3 className="mb-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">Recent activity</h3>
+              <h3 className="mb-3 text-sm font-medium text-zinc-700">Recent activity</h3>
               {history.length === 0 ? (
                 <p className="text-sm italic text-zinc-500">No activity yet.</p>
               ) : (
                 <ul className="space-y-2">
                   {history.map((item) => (
-                    <li key={item.id} className="rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-3 text-xs dark:border-zinc-700 dark:bg-zinc-800/40">
-                      <div className="flex justify-between font-medium text-zinc-800 dark:text-zinc-200">
+                    <li key={item.id} className="rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-3 text-xs">
+                      <div className="flex justify-between font-medium text-zinc-800">
                         <span>{item.action}</span>
                         <span className="text-zinc-500">{item.timestamp}</span>
                       </div>

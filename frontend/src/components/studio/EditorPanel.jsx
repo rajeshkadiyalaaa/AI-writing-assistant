@@ -59,7 +59,7 @@ export default function EditorPanel({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 gap-1 border-b border-zinc-200/80 p-2 dark:border-zinc-800">
+      <div className="flex shrink-0 gap-1 border-b border-zinc-200/80 p-2">
         <button
           type="button"
           onClick={() => setActiveTab('editor')}
@@ -80,7 +80,7 @@ export default function EditorPanel({
         <>
           <div className="studio-panel m-3 flex min-h-0 flex-1 flex-col overflow-hidden sm:m-4">
             {hasSelection && (
-              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-zinc-200/80 px-3 py-2 dark:border-zinc-800">
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-zinc-200/80 px-3 py-2">
                 <span className="text-xs text-zinc-500">Text selected</span>
                 <button
                   type="button"
@@ -108,7 +108,7 @@ export default function EditorPanel({
               className="editor-area flex-1 p-5 sm:p-6"
             />
           </div>
-          <div className="flex shrink-0 flex-col gap-2 border-t border-zinc-200/80 px-4 py-3 dark:border-zinc-800 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex shrink-0 flex-col gap-2 border-t border-zinc-200/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
                 <span>{stats.wordCount} words</span>
@@ -116,7 +116,7 @@ export default function EditorPanel({
                 <span>~{stats.readingMinutes} min read</span>
               </div>
               {stats.soundsAi && (
-                <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400" title={stats.bannedHits.join(', ')}>
+                <p className="mt-1 text-[11px] text-amber-700" title={stats.bannedHits.join(', ')}>
                   Sounds AI-ish: {stats.bannedHits.slice(0, 3).join(', ')}
                   {stats.bannedHits.length > 3 ? ` +${stats.bannedHits.length - 3}` : ''}
                 </p>
@@ -166,7 +166,7 @@ export default function EditorPanel({
                   <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/10 text-accent">
                     <Bot size={28} />
                   </div>
-                  <h3 className="font-display text-xl font-semibold text-zinc-900 dark:text-zinc-50">Chat with Scribe</h3>
+                  <h3 className="font-display text-xl font-semibold text-zinc-900">Chat with Scribe</h3>
                   <p className="mx-auto mt-2 max-w-md text-sm text-zinc-500">
                     Brainstorm, outline, or refine — tuned for {documentTypes.find((t) => t.id === documentType)?.name} · {tone} tone
                   </p>
@@ -176,7 +176,7 @@ export default function EditorPanel({
                         key={i}
                         type="button"
                         onClick={() => selectConversationStarter(starter)}
-                        className="rounded-full border border-zinc-200/80 bg-white px-3 py-2 text-left text-xs text-zinc-600 transition hover:border-accent/40 hover:bg-accent/5 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
+                        className="rounded-full border border-zinc-200/80 bg-white px-3 py-2 text-left text-xs text-zinc-600 transition hover:border-accent/40 hover:bg-accent/5"
                       >
                         {starter}
                       </button>
@@ -199,7 +199,7 @@ export default function EditorPanel({
                         className={cn(
                           msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-assistant',
                           msg.isError &&
-                            'border border-red-200/80 bg-red-50 text-red-900 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-100'
+                            'border border-red-200/80 bg-red-50 text-red-900'
                         )}
                       >
                         <div className="whitespace-pre-wrap">
@@ -209,7 +209,7 @@ export default function EditorPanel({
                           )}
                         </div>
                         {msg.meta && (msg.meta.wordCount != null || msg.meta.qualityScore != null) && (
-                          <p className="mt-2 border-t border-zinc-200/60 pt-2 text-[10px] text-zinc-500 dark:border-zinc-600">
+                          <p className="mt-2 border-t border-zinc-200/60 pt-2 text-[10px] text-zinc-500">
                             {msg.meta.wordCount != null && <span>{msg.meta.wordCount} words</span>}
                             {msg.meta.qualityScore != null && (
                               <span className={msg.meta.wordCount != null ? ' · ' : ''}>
@@ -219,7 +219,7 @@ export default function EditorPanel({
                           </p>
                         )}
                         {msg.role === 'assistant' && msg.content && !msg.streaming && onInsertChatMessage && (
-                          <div className="mt-2 flex flex-wrap gap-1.5 border-t border-zinc-200/60 pt-2 dark:border-zinc-600">
+                          <div className="mt-2 flex flex-wrap gap-1.5 border-t border-zinc-200/60 pt-2">
                             <button
                               type="button"
                               onClick={() => onInsertChatMessage(msg.content, 'cursor')}
@@ -256,7 +256,7 @@ export default function EditorPanel({
             </div>
           </div>
 
-          <div className="shrink-0 border-t border-zinc-200/80 p-3 dark:border-zinc-800 sm:p-4">
+          <div className="shrink-0 border-t border-zinc-200/80 p-3 sm:p-4">
             <div className="mx-auto flex max-w-2xl gap-2">
               <input
                 type="text"

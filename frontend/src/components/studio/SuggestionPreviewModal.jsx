@@ -22,10 +22,10 @@ export default function SuggestionPreviewModal({
       />
       <div
         role="dialog"
-        className="relative z-10 w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-surface-900"
+        className="relative z-10 w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-5 shadow-xl"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
-          <h2 className="font-display text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+          <h2 className="font-display text-lg font-semibold text-zinc-900">
             {isNotFound ? 'Cannot apply automatically' : 'Preview suggestion'}
           </h2>
           <button type="button" onClick={onReject} className="btn-icon" aria-label="Close">
@@ -33,15 +33,15 @@ export default function SuggestionPreviewModal({
           </button>
         </div>
 
-        <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">{summary}</p>
+        <p className="mb-3 text-sm text-zinc-600">{summary}</p>
         {warning && (
-          <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/50 dark:text-amber-100">
+          <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
             {warning}
           </p>
         )}
 
         {isNotFound && (
-          <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="mb-3 text-sm text-zinc-600">
             The exact phrase is not in your document (edits may have changed it). Copy the replacement from the suggestion text, or adjust the document so the quoted phrase matches, then try again.
           </p>
         )}
@@ -50,11 +50,11 @@ export default function SuggestionPreviewModal({
           <div className="mb-3 space-y-2 text-xs">
             <div>
               <span className="font-semibold text-zinc-500">Find:</span>
-              <p className="mt-1 rounded-lg bg-zinc-100 p-2 dark:bg-zinc-800">{suggestion.search}</p>
+              <p className="mt-1 rounded-lg bg-zinc-100 p-2">{suggestion.search}</p>
             </div>
             <div>
               <span className="font-semibold text-zinc-500">Replace with:</span>
-              <p className="mt-1 rounded-lg bg-emerald-50 p-2 dark:bg-emerald-950/40">
+              <p className="mt-1 rounded-lg bg-emerald-50 p-2">
                 {suggestion.replace ?? ''}
               </p>
             </div>
@@ -62,9 +62,9 @@ export default function SuggestionPreviewModal({
         )}
 
         {previewContent && (
-          <div className="mb-4 max-h-40 overflow-y-auto rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-700">
+          <div className="mb-4 max-h-40 overflow-y-auto rounded-lg border border-zinc-200 p-3 text-sm">
             <p className="mb-1 text-xs font-semibold text-zinc-500">Result preview (opening section)</p>
-            <p className="whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">{previewContent}</p>
+            <p className="whitespace-pre-wrap text-zinc-700">{previewContent}</p>
           </div>
         )}
 

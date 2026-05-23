@@ -31,17 +31,17 @@ export default class ErrorBoundary extends React.Component {
     if (!error) return this.props.children;
 
     return (
-      <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-surface-50 p-6 text-center dark:bg-surface-950">
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-surface-50 p-6 text-center">
         <div className="studio-panel max-w-md p-8">
           <AlertCircle size={40} className="mx-auto mb-4 text-red-500" />
-          <h1 className="font-display text-xl font-semibold text-zinc-900 dark:text-zinc-50">
+          <h1 className="font-display text-xl font-semibold text-zinc-900">
             Something went wrong
           </h1>
-          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="mt-2 text-sm text-zinc-600">
             The writing studio hit an unexpected error. You can try again or reload the page.
           </p>
           {process.env.NODE_ENV !== 'production' && (
-            <pre className="mt-4 max-h-32 overflow-auto rounded-lg bg-zinc-100 p-3 text-left text-xs text-red-800 dark:bg-zinc-900 dark:text-red-200">
+            <pre className="mt-4 max-h-32 overflow-auto rounded-lg bg-zinc-100 p-3 text-left text-xs text-red-800">
               {error.message}
             </pre>
           )}

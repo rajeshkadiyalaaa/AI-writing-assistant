@@ -17,11 +17,11 @@ export default function CustomModelModal({
     <div className="fixed inset-0 z-[60] flex items-end justify-center p-4 sm:items-center">
       <button type="button" className="absolute inset-0 bg-zinc-900/50 backdrop-blur-sm" onClick={onClose} aria-label="Close" />
       <div className="studio-panel relative z-10 w-full max-w-md animate-slide-up p-6">
-        <h2 className="font-display text-xl font-semibold text-zinc-900 dark:text-zinc-50">Add custom model</h2>
+        <h2 className="font-display text-xl font-semibold text-zinc-900">Add custom model</h2>
         <p className="mt-1 mb-5 text-sm text-zinc-500">Use any model ID from OpenRouter.</p>
 
         <label className="mb-4 block">
-          <span className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Model ID</span>
+          <span className="mb-1.5 block text-sm font-medium text-zinc-700">Model ID</span>
           <input
             type="text"
             value={customModelId}
@@ -32,7 +32,7 @@ export default function CustomModelModal({
         </label>
 
         <label className="mb-6 block">
-          <span className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Display name</span>
+          <span className="mb-1.5 block text-sm font-medium text-zinc-700">Display name</span>
           <input
             type="text"
             value={customModelName}
