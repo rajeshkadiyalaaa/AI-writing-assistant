@@ -7,8 +7,9 @@ const fs = require('fs');
 const path = require('path');
 
 const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models';
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const CACHE_TTL_MS = 15 * 24 * 60 * 60 * 1000; // 15 days
 const FALLBACK_PATH = path.join(__dirname, '../shared/models.json');
+const ASSIGNED_MODELS_PATH = path.join(__dirname, 'assigned_models.json');
 
 /** Not suitable for general writing in this app */
 const WRITING_EXCLUDE =
@@ -20,14 +21,18 @@ const TASK_SLOTS = [
     key: 'general',
     strengths: ['general', 'creative'],
     taskLabel: 'General & creative writing',
-    preferIds: ['openrouter/free'],
+    preferIds: [
+      'qwen/qwen3-next-80b-a3b-instruct:free',
+      'meta-llama/llama-3.3-70b-instruct:free',
+      'nousresearch/hermes-3-llama-3.1-405b:free',
+      'google/gemma-4-31b-it:free',
+    ],
     score(m) {
       const id = m.id.toLowerCase();
       const text = `${m.name || ''} ${m.description || ''}`.toLowerCase();
       let s = 0;
-      if (id === 'openrouter/free') return 10000;
       if (/instruct|writing|assistant|chat|general/.test(text)) s += 90;
-      if (/gemma-4-31b|llama-3\.3-70b|gpt-oss-120b|minimax-m2\.5/.test(id)) s += 70;
+      if (/qwen3-next|llama-3\.3|hermes-3|gemma-4/.test(id)) s += 70;
       s += Math.min((m.context_length || 0) / 8000, 35);
       return s;
     },
@@ -73,7 +78,28 @@ const TASK_SLOTS = [
   },
 ];
 
-let cache = { at: 0, models: null, source: 'fallback' };
+function loadAssignedModels() {
+  try {
+    const raw = fs.readFileSync(ASSIGNED_MODELS_PATH, 'utf8');
+    const data = JSON.parse(raw);
+    if (data && data.models && data.at) {
+      return data;
+    }
+  } catch (err) {
+    // Ignore if file doesn't exist or is invalid
+  }
+  return { at: 0, models: null, source: 'fallback' };
+}
+
+function saveAssignedModels(data) {
+  try {
+    fs.writeFileSync(ASSIGNED_MODELS_PATH, JSON.stringify(data, null, 2), 'utf8');
+  } catch (err) {
+    console.error('Failed to save assigned models:', err.message);
+  }
+}
+
+let cache = loadAssignedModels();
 /** Coalesce concurrent catalog fetches (avoids stampede on cold cache). */
 let inflightFetch = null;
 
@@ -84,6 +110,7 @@ function isFreeModel(m) {
 
 function isWritingCandidate(m) {
   if (!isFreeModel(m)) return false;
+  if (m.id === 'openrouter/free') return false;
   const blob = `${m.id} ${m.name || ''} ${m.description || ''}`;
   return !WRITING_EXCLUDE.test(blob);
 }
@@ -202,6 +229,7 @@ async function getTaskSpecificFreeModels() {
         default_model: models[0].id,
         source: 'openrouter',
       };
+      saveAssignedModels(cache);
       console.log(
         'OpenRouter free models:',
         models.map((m) => `${m.task}=${m.id}`).join(', '),
@@ -230,8 +258,55 @@ function invalidateModelsCache() {
   cache = { at: 0, models: null, source: 'fallback' };
 }
 
+async function refreshSpecificSlot(slotKey) {
+  if (!slotKey || !cache.models) {
+    invalidateModelsCache();
+    return getTaskSpecificFreeModels();
+  }
+
+  const slotDef = TASK_SLOTS.find(s => s.key === slotKey);
+  if (!slotDef) {
+    invalidateModelsCache();
+    return getTaskSpecificFreeModels();
+  }
+
+  try {
+    const catalog = await fetchCatalog();
+    const pool = catalog.filter(isWritingCandidate);
+    
+    const usedIds = new Set();
+    for (const m of cache.models) {
+      if (m.task !== slotKey) usedIds.add(m.id);
+    }
+
+    const picked = pickSlotModel(pool, slotDef, usedIds);
+    if (picked) {
+      const newModelObj = {
+        id: picked.id,
+        name: cleanDisplayName(picked.name),
+        strengths: slotDef.strengths,
+        description: shortDescription(picked, slotDef.taskLabel),
+        free: true,
+        task: slotDef.key,
+      };
+
+      cache.models = cache.models.map(m => m.task === slotKey ? newModelObj : m);
+      if (cache.models[0]) cache.default_model = cache.models[0].id;
+      cache.at = Date.now();
+      saveAssignedModels(cache);
+      console.log(`Refreshed slot '${slotKey}' -> ${picked.id}`);
+    }
+    return cache;
+  } catch (err) {
+    console.error(`Failed to refresh slot ${slotKey}:`, err.message);
+    invalidateModelsCache();
+    return getTaskSpecificFreeModels();
+  }
+}
+
 module.exports = {
   getTaskSpecificFreeModels,
   invalidateModelsCache,
+  refreshSpecificSlot,
   TASK_SLOTS,
 };

@@ -17,15 +17,14 @@ export default function useApiKey(showNotification) {
   const [rememberKey, setRememberKey] = useState(!IS_PROD);
   const [showSecurityInfo, setShowSecurityInfo] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [canSaveApiKeyViaUi, setCanSaveApiKeyViaUi] = useState(!IS_PROD);
 
   const fetchApiKeyInfo = useCallback(async () => {
     try {
       const response = await api.settingsApikey();
-      setMaskedApiKey(response.data.maskedKey || '');
-      setApiKeySet(Boolean(response.data.isSet));
-    } catch (err) {
-      console.warn('Could not load API key status:', formatApiError(err));
+      setMaskedApiKey(response.data.maskedKey);
+      setApiKeySet(response.data.isSet);
+    } catch {
+      setApiKeyError('Failed to load API key information');
     }
   }, []);
 
@@ -34,18 +33,9 @@ export default function useApiKey(showNotification) {
       localStorage.removeItem('openrouter_api_key');
     }
     fetchApiKeyInfo();
-    api.health()
-      .then((res) => {
-        if (typeof res.data?.allowUiApiKeySave === 'boolean') {
-          setCanSaveApiKeyViaUi(res.data.allowUiApiKeySave);
-        }
-        if (typeof res.data?.apiKeyConfigured === 'boolean' && res.data.apiKeyConfigured) {
-          setApiKeySet(true);
-        }
-      })
-      .catch(() => {
-        console.warn('Backend not reachable. From project root run: npm start');
-      });
+    api.health().catch(() => {
+      console.warn('Backend not reachable. From project root run: npm start');
+    });
   }, [fetchApiKeyInfo]);
 
   useEffect(() => {
@@ -79,9 +69,8 @@ export default function useApiKey(showNotification) {
       setShowApiKeyModal(false);
       showNotification('API key saved on server for this session', 'success');
     } catch (error) {
-      const is403 = error.status === 403 || error.response?.status === 403;
       const msg =
-        is403 && !canSaveApiKeyViaUi
+        (error.status === 403 || error.response?.status === 403) && IS_PROD
           ? 'In production, set OPENROUTER_API_KEY in the server .env file instead of saving here.'
           : formatApiError(error);
       setApiKeyError(msg);
@@ -166,6 +155,5 @@ export default function useApiKey(showNotification) {
     copyToClipboard,
     closeApiKeyModal,
     isProd: IS_PROD,
-    canSaveApiKeyViaUi,
   };
 }

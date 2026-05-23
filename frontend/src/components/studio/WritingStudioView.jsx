@@ -143,7 +143,6 @@ export default function WritingStudioView({ p }) {
     updateApiKey,
     copyToClipboard,
     isProd,
-    canSaveApiKeyViaUi,
     showNotification,
     showToast,
     toastMessage,
@@ -292,43 +291,43 @@ export default function WritingStudioView({ p }) {
           style={{ width: leftPanelWidth }}
         >
           <SettingsSidebar
-                documentType={documentType}
-                setDocumentType={setDocumentType}
-                documentTypes={documentTypes}
-                tone={tone}
-                setTone={setTone}
-                toneOptions={toneOptions}
-                model={model}
-                setModel={setModel}
-                modelOptions={modelOptions}
-                modelsSource={modelsSource}
-                autoPickModel={autoPickModel}
-                setAutoPickModelPref={setAutoPickModelPref}
-                refreshModels={refreshModels}
-                isRefreshingModels={isRefreshingModels}
-                temperature={temperature}
-                setTemperature={setTemperature}
-                showModelInfo={showModelInfo}
-                setShowModelInfo={setShowModelInfo}
-                showTemperatureInfo={showTemperatureInfo}
-                setShowTemperatureInfo={setShowTemperatureInfo}
-                getModelDisplayName={getModelDisplayName}
-                isRecommendedModel={isRecommendedModel}
-                removeCustomModel={removeCustomModel}
-                setShowCustomModelForm={setShowCustomModelForm}
-                setChatMessages={setChatMessages}
-                history={history}
-                editorVersions={editorVersions}
-                onRestoreVersion={onRestoreVersion}
-                activeSidebarTab={activeSidebarTab}
-                setActiveSidebarTab={setActiveSidebarTab}
-                savedDocuments={savedDocuments}
-                loadDocument={loadDocument}
-                deleteDocument={deleteDocument}
-                apiKeySet={apiKeySet}
-                maskedApiKey={maskedApiKey}
-                onOpenApiKeyModal={() => setShowApiKeyModal(true)}
-              />
+            documentType={documentType}
+            setDocumentType={setDocumentType}
+            documentTypes={documentTypes}
+            tone={tone}
+            setTone={setTone}
+            toneOptions={toneOptions}
+            model={model}
+            setModel={setModel}
+            modelOptions={modelOptions}
+            modelsSource={modelsSource}
+            autoPickModel={autoPickModel}
+            setAutoPickModelPref={setAutoPickModelPref}
+            refreshModels={refreshModels}
+            isRefreshingModels={isRefreshingModels}
+            temperature={temperature}
+            setTemperature={setTemperature}
+            showModelInfo={showModelInfo}
+            setShowModelInfo={setShowModelInfo}
+            showTemperatureInfo={showTemperatureInfo}
+            setShowTemperatureInfo={setShowTemperatureInfo}
+            getModelDisplayName={getModelDisplayName}
+            isRecommendedModel={isRecommendedModel}
+            removeCustomModel={removeCustomModel}
+            setShowCustomModelForm={setShowCustomModelForm}
+            setChatMessages={setChatMessages}
+            history={history}
+            editorVersions={editorVersions}
+            onRestoreVersion={onRestoreVersion}
+            activeSidebarTab={activeSidebarTab}
+            setActiveSidebarTab={setActiveSidebarTab}
+            savedDocuments={savedDocuments}
+            loadDocument={loadDocument}
+            deleteDocument={deleteDocument}
+            apiKeySet={apiKeySet}
+            maskedApiKey={maskedApiKey}
+            onOpenApiKeyModal={() => setShowApiKeyModal(true)}
+          />
           <div ref={p.leftResizeRef} className="resize-handle right-0" onMouseDown={handleLeftResizerMouseDown} />
         </div>
 
@@ -526,7 +525,6 @@ export default function WritingStudioView({ p }) {
         onTest={testApiKey}
         onSave={updateApiKey}
         isProd={isProd}
-        canSaveApiKeyViaUi={canSaveApiKeyViaUi}
       />
 
       <CustomModelModal

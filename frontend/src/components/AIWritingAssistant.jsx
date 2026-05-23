@@ -393,7 +393,6 @@ export default function AIWritingAssistant() {
         updateApiKey: apiKey.updateApiKey,
         copyToClipboard: apiKey.copyToClipboard,
         isProd: apiKey.isProd,
-        canSaveApiKeyViaUi: apiKey.canSaveApiKeyViaUi,
         showNotification,
         showToast,
         toastMessage,

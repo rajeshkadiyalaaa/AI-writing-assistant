@@ -54,11 +54,10 @@ export default function useChat({
 
       const applyStreamChunk = (full) => {
         streamed = full;
-        setChatMessages((prev) => {
-          const copy = [...prev];
-          copy[copy.length - 1] = { role: 'assistant', content: full, streaming: true };
-          return copy;
-        });
+        setChatMessages((prev) => [
+          ...prev.slice(0, -1),
+          { role: 'assistant', content: full, streaming: true },
+        ]);
       };
 
       try {
@@ -77,11 +76,10 @@ export default function useChat({
         usageFromStream = data.usage;
         const meta = extractMeta(data);
         onTokenUsage?.(usageFromStream, updatedMessages.length, streamed);
-        setChatMessages((prev) => {
-          const copy = [...prev];
-          copy[copy.length - 1] = { role: 'assistant', content: streamed, meta };
-          return copy;
-        });
+        setChatMessages((prev) => [
+          ...prev.slice(0, -1),
+          { role: 'assistant', content: streamed, meta },
+        ]);
         addHistory(`Chat with ${getModelDisplayName(model)} (${documentType}, ${tone})`);
         return;
       }
@@ -91,11 +89,10 @@ export default function useChat({
       }
 
       onTokenUsage?.(usageFromStream, updatedMessages.length, streamed);
-      setChatMessages((prev) => {
-        const copy = [...prev];
-        copy[copy.length - 1] = { role: 'assistant', content: streamed };
-        return copy;
-      });
+      setChatMessages((prev) => [
+        ...prev.slice(0, -1),
+        { role: 'assistant', content: streamed },
+      ]);
       addHistory(`Chat with ${getModelDisplayName(model)} (${documentType}, ${tone})`);
     },
     [model, documentType, tone, temperature, addHistory, onTokenUsage, getModelDisplayName]

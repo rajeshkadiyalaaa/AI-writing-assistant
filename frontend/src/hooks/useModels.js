@@ -120,7 +120,7 @@ export default function useModels({ model, setModel, documentType, showNotificat
   const refreshModels = async () => {
     setIsRefreshingModels(true);
     try {
-      const res = await api.refreshModels();
+      const res = await api.refreshModels({ slot: documentType });
       const builtIn = res.data.models || FALLBACK_MODELS;
       const custom = JSON.parse(localStorage.getItem('custom_models') || '[]');
       const merged = [...builtIn, ...custom];

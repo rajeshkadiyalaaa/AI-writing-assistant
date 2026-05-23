@@ -1,0 +1,39 @@
+{
+  "at": 1779524841115,
+  "models": [
+    {
+      "id": "meta-llama/llama-3.3-70b-instruct:free",
+      "name": "Meta: Llama 3.3 70B Instruct",
+      "strengths": [
+        "general",
+        "creative"
+      ],
+      "description": "General & creative writing · The Meta Llama 3.3 multilingual large language model (LLM) is a pretrained and instruction tuned …",
+      "free": true,
+      "task": "general"
+    },
+    {
+      "id": "google/gemma-4-26b-a4b-it:free",
+      "name": "Google: Gemma 4 26B A4B",
+      "strengths": [
+        "email",
+        "business"
+      ],
+      "description": "Email & business writing · Gemma 4 26B A4B IT is an instruction-tuned Mixture-of-Experts (MoE) model from Google DeepMind. D…",
+      "free": true,
+      "task": "business"
+    },
+    {
+      "id": "deepseek/deepseek-v4-flash:free",
+      "name": "DeepSeek: DeepSeek V4 Flash",
+      "strengths": [
+        "academic"
+      ],
+      "description": "Academic & analytical writing · DeepSeek V4 Flash is an efficiency-optimized Mixture-of-Experts model from DeepSeek with 284B tot…",
+      "free": true,
+      "task": "academic"
+    }
+  ],
+  "default_model": "meta-llama/llama-3.3-70b-instruct:free",
+  "source": "openrouter"
+}

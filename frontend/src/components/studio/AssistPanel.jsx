@@ -8,6 +8,12 @@ const typeStyles = {
   alternative: 'bg-emerald-100 text-emerald-700',
 };
 
+function getTypeStyle(type) {
+  return Object.prototype.hasOwnProperty.call(typeStyles, type)
+    ? typeStyles[type]
+    : typeStyles.improvement;
+}
+
 export default function AssistPanel({
   isMobile,
   onClose,
@@ -78,7 +84,7 @@ export default function AssistPanel({
             {suggestions.map((s) => (
               <li key={s.id} className="suggestion-card">
                 <div className="mb-2 flex items-start justify-between gap-2">
-                  <span className={cn('chip', typeStyles[s.type] || typeStyles.improvement)}>
+                  <span className={cn('chip', getTypeStyle(s.type))}>
                     {s.type}
                   </span>
                   <div className="flex gap-1">

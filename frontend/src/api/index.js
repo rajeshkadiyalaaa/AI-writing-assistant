@@ -45,7 +45,7 @@ const api = {
   suggestions: (data, config) => axiosInstance.post('/api/suggestions', data, config),
   improve: (data, config) => axiosInstance.post('/api/improve', data, config),
   models: (config) => axiosInstance.get('/api/models', config),
-  refreshModels: (config) => axiosInstance.post('/api/models/refresh', undefined, config),
+  refreshModels: (data, config) => axiosInstance.post('/api/models/refresh', data, config),
 };
 
 export default api;

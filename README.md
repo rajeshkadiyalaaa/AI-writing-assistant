@@ -18,7 +18,7 @@ Scribe helps you write better, faster. Draft in a clean editor, ask the AI for i
 | **API key** | Set in UI (dev) or server `.env` (production) |
 | **Reliability** | Cancel in-flight requests, retry on failure, real token usage stats |
 | **Export** | Markdown, PDF, DOCX (HTML fallback if PDF/DOCX fails) |
-| **UI** | Writing Studio layout, resizable panels, mobile bottom nav |
+| **UI** | Writing Studio layout, dark mode, resizable panels, mobile bottom nav |
 
 **Writing voice:** All AI paths use rules from [`Skills.txt`](Skills.txt) (also [`shared/writing_skills.txt`](shared/writing_skills.txt)), loaded by `backend/scripts/writing_skills.py`. Edit either file to change tone app-wide.
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import {
   Edit3, MessageCircle, Send, Loader, Bot, Trash2, Save, Undo2, Redo2, Sparkles,
-  TextCursorInput, FilePlus, Replace,
+  FilePlus, Copy,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { computeEditorStats } from '../../lib/writingLint';
@@ -189,10 +189,8 @@ export default function EditorPanel({
                 {chatMessages.map((msg, index) => (
                   <div key={index} className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
                     {msg.streaming && !msg.content ? (
-                      <div className="chat-bubble-assistant flex gap-1 py-4">
-                        <span className="h-2 w-2 animate-bounce rounded-full bg-zinc-400 [animation-delay:0ms]" />
-                        <span className="h-2 w-2 animate-bounce rounded-full bg-zinc-400 [animation-delay:150ms]" />
-                        <span className="h-2 w-2 animate-bounce rounded-full bg-zinc-400 [animation-delay:300ms]" />
+                      <div className="chat-bubble-assistant flex items-center gap-2 py-3 text-[13px] font-medium text-zinc-500">
+                        <Loader size={14} className="animate-spin text-zinc-400" /> Thinking...
                       </div>
                     ) : (
                       <div
@@ -205,7 +203,7 @@ export default function EditorPanel({
                         <div className="whitespace-pre-wrap">
                           {msg.content}
                           {msg.streaming && (
-                            <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-accent align-middle" />
+                            <span className="ml-1 inline-block h-3.5 w-2 animate-pulse rounded-sm bg-zinc-800 align-middle" />
                           )}
                         </div>
                         {msg.meta && (msg.meta.wordCount != null || msg.meta.qualityScore != null) && (
@@ -222,11 +220,11 @@ export default function EditorPanel({
                           <div className="mt-2 flex flex-wrap gap-1.5 border-t border-zinc-200/60 pt-2">
                             <button
                               type="button"
-                              onClick={() => onInsertChatMessage(msg.content, 'cursor')}
+                              onClick={() => navigator.clipboard.writeText(msg.content)}
                               className="btn-ghost py-1 text-[11px]"
-                              title="Insert at cursor in editor"
+                              title="Copy to clipboard"
                             >
-                              <TextCursorInput size={12} /> At cursor
+                              <Copy size={12} /> Copy
                             </button>
                             <button
                               type="button"
@@ -235,15 +233,6 @@ export default function EditorPanel({
                               title="Append to end of document"
                             >
                               <FilePlus size={12} /> Append
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => onInsertChatMessage(msg.content, 'replace')}
-                              disabled={!hasSelection}
-                              className="btn-ghost py-1 text-[11px] disabled:opacity-40"
-                              title={hasSelection ? 'Replace selected text' : 'Select text in the editor first'}
-                            >
-                              <Replace size={12} /> Replace selection
                             </button>
                           </div>
                         )}

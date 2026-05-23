@@ -53,8 +53,7 @@ function assertValidChatMessages(messages) {
   if (messages.length > MAX_CHAT_MESSAGES) {
     throw badRequest(`Too many messages (max ${MAX_CHAT_MESSAGES}).`);
   }
-  for (let i = 0; i < messages.length; i += 1) {
-    const m = messages[i];
+  for (const [i, m] of messages.entries()) {
     if (!m || typeof m !== 'object') {
       throw badRequest(`Invalid message at index ${i}.`);
     }
@@ -152,7 +151,8 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-const { getTaskSpecificFreeModels, invalidateModelsCache } = require('./openRouterModels');
+const { getTaskSpecificFreeModels, invalidateModelsCache, refreshSpecificSlot } = require('./openRouterModels');
+const { buildChatSystemPrompt, buildSuggestionsPrompt, buildImprovePrompt, estimateTokens } = require('./promptBuilder');
 
 app.get('/api/models', async (req, res) => {
   try {
@@ -170,8 +170,8 @@ app.get('/api/models', async (req, res) => {
 
 app.post('/api/models/refresh', async (req, res) => {
   try {
-    invalidateModelsCache();
-    const { models, default_model, source, at } = await getTaskSpecificFreeModels();
+    const slot = req.body?.slot;
+    const { models, default_model, source, at } = await refreshSpecificSlot(slot);
     res.json({
       default_model: process.env.DEFAULT_MODEL || default_model,
       models,
@@ -187,43 +187,77 @@ async function prepareChatMessages(body) {
   const { messages, model, documentType, tone, temperature } = body;
   assertValidChatMessages(messages);
   const modelId = resolveModelForRequest(model);
-  const { stdout } = await runPythonScript('generate_response.py', {
-    messages,
-    model: modelId,
-    documentType,
-    tone,
-    temperature,
-    prepareOnly: true,
-  });
-  const prepared = parsePythonJson(stdout);
-  if (prepared.error) {
-    const err = new Error(prepared.error);
-    err.details = prepared.details;
-    throw err;
+  
+  const systemContent = buildChatSystemPrompt({ documentType, tone, temperature });
+  const systemMessage = { role: "system", content: systemContent };
+
+  const tokenBudget = 6000;
+  let currentTokens = estimateTokens(systemContent);
+
+  const fullMessages = [systemMessage];
+  let truncated = false;
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role !== 'user' && msg.role !== 'assistant') continue;
+    
+    const msgTokens = estimateTokens(msg.content || "");
+    if (currentTokens + msgTokens < tokenBudget) {
+      fullMessages.splice(1, 0, msg);
+      currentTokens += msgTokens;
+    } else {
+      truncated = true;
+      break;
+    }
   }
-  return prepared;
+
+  if (truncated && fullMessages.length === 1) {
+    fullMessages.splice(1, 0, {
+      role: 'system',
+      content: 'Note: The conversation history is extensive. Focusing on the most recent messages.',
+    });
+  }
+
+  return {
+    messages: fullMessages,
+    model: modelId,
+    temperature: typeof temperature === 'number' ? temperature : 0.7,
+    max_tokens: 1000,
+  };
 }
 
-// API endpoint to generate AI responses
+// API endpoint to generate AI responses (non-streaming)
 app.post('/api/generate', async (req, res) => {
+  const apiKey = requireServerApiKey(res);
+  if (!apiKey) return;
+
   try {
-    const { messages, documentType, tone, temperature } = req.body;
-    assertValidChatMessages(messages);
-    const modelId = resolveModelForRequest(req.body.model);
-    const { stdout } = await runPythonScript('generate_response.py', {
-      messages,
-      model: modelId,
-      documentType,
-      tone,
-      temperature,
+    const prepared = await prepareChatMessages(req.body);
+    const openRouterRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: getOpenRouterHeaders(apiKey),
+      body: JSON.stringify({
+        model: prepared.model,
+        messages: prepared.messages,
+        temperature: prepared.temperature,
+        max_tokens: prepared.max_tokens,
+      }),
     });
-    const jsonResponse = parsePythonJsonOrThrow(stdout);
-    return res.json(jsonResponse);
-  } catch (error) {
-    if (error.pythonPayload) {
-      const status = statusForPythonPayload(error.pythonPayload) || 502;
-      return sendError(res, status, error.message, { details: error.details });
+
+    if (!openRouterRes.ok) {
+      const message = await parseOpenRouterError(openRouterRes);
+      return sendError(res, openRouterRes.status, message);
     }
+
+    const data = await openRouterRes.json();
+    const content = data.choices?.[0]?.message?.content;
+    
+    if (!content) {
+      return sendError(res, 502, "OpenRouter returned an empty response.");
+    }
+
+    return res.json({ response: content, usage: data.usage });
+  } catch (error) {
     return handleRouteError(res, error, 'Error generating response');
   }
 });
@@ -309,29 +343,58 @@ app.post('/api/suggestions', async (req, res) => {
       return handleRouteError(res, e, 'Invalid request');
     }
     
-    const { stdout } = await runPythonScript('generate_suggestions.py', {
-      content,
-      documentType,
-      tone,
-      model: modelId,
+    const apiKey = requireServerApiKey(res);
+    if (!apiKey) return;
+
+    const { systemMessage, userMessage } = buildSuggestionsPrompt({ content, documentType, tone });
+    
+    const openRouterRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: getOpenRouterHeaders(apiKey),
+      body: JSON.stringify({
+        model: modelId,
+        messages: [
+          { role: 'system', content: systemMessage },
+          { role: 'user', content: userMessage }
+        ],
+        temperature: 0.3,
+        max_tokens: 1000,
+        response_format: { type: "json_object" } 
+      }),
     });
 
-    const jsonResponse = parsePythonJsonOrThrow(stdout);
-    return res.json(jsonResponse);
+    if (!openRouterRes.ok) {
+      const message = await parseOpenRouterError(openRouterRes);
+      return sendError(res, openRouterRes.status, message);
+    }
+
+    const data = await openRouterRes.json();
+    let assistantText = data.choices?.[0]?.message?.content || "";
+    
+    let parsedSuggestions = [];
+    try {
+      // In case the model returns markdown JSON blocks
+      if (assistantText.includes('```json')) {
+        assistantText = assistantText.split('```json')[1].split('```')[0].trim();
+      } else if (assistantText.includes('```')) {
+        assistantText = assistantText.split('```')[1].split('```')[0].trim();
+      }
+      parsedSuggestions = JSON.parse(assistantText);
+      if (!Array.isArray(parsedSuggestions)) {
+         parsedSuggestions = parsedSuggestions.suggestions || [];
+      }
+    } catch (err) {
+      console.warn("Failed to parse suggestions JSON from OpenRouter:", err);
+      parsedSuggestions = [{ id: 1, type: 'improvement', text: 'Model failed to generate structured suggestions. Try again.' }];
+    }
+
+    return res.json({ suggestions: parsedSuggestions });
   } catch (error) {
     const fallbackSuggestion = {
       id: 1,
       type: 'improvement',
-      text: 'The server encountered an error. Check your API key and that Python 3 is installed.',
+      text: 'The server encountered an error while generating suggestions.',
     };
-    if (error.pythonPayload) {
-      const status = statusForPythonPayload(error.pythonPayload) || 502;
-      return res.status(status).json({
-        error: error.message,
-        details: error.details || '',
-        suggestions: error.pythonPayload.suggestions || [fallbackSuggestion],
-      });
-    }
     return res.status(502).json({
       error: error.message || 'Error generating suggestions',
       details: error.details,
@@ -365,7 +428,10 @@ app.post('/api/improve', async (req, res) => {
       return handleRouteError(res, e, 'Invalid request');
     }
 
-    const { stdout } = await runPythonScript('improve_readability.py', {
+    const apiKey = requireServerApiKey(res);
+    if (!apiKey) return;
+
+    const { systemMessage, userMessage } = buildImprovePrompt({
       content,
       selectedText,
       selectionStart,
@@ -375,14 +441,43 @@ app.post('/api/improve', async (req, res) => {
       additionalInstructions,
       model: modelId,
     });
+    
+    const openRouterRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: getOpenRouterHeaders(apiKey),
+      body: JSON.stringify({
+        model: modelId,
+        messages: [
+          { role: 'system', content: systemMessage },
+          { role: 'user', content: userMessage }
+        ],
+        temperature: 0.3,
+        max_tokens: 1500,
+      }),
+    });
 
-    const jsonResponse = parsePythonJsonOrThrow(stdout);
-    return res.json(jsonResponse);
-  } catch (error) {
-    if (error.pythonPayload) {
-      const status = statusForPythonPayload(error.pythonPayload) || 502;
-      return sendError(res, status, error.message, { details: error.details });
+    if (!openRouterRes.ok) {
+      const message = await parseOpenRouterError(openRouterRes);
+      return sendError(res, openRouterRes.status, message);
     }
+
+    const data = await openRouterRes.json();
+    let assistantText = data.choices?.[0]?.message?.content || "";
+    
+    // Failsafe: aggressively strip common conversational filler if the model ignored instructions
+    const fillerRegex = /^(Here is the rewritten text|Here's the rewritten text|Here is the rewrite|Sure, here is the rewrite|Here is the improved version)[^:]*:\s*\n*/i;
+    assistantText = assistantText.replace(fillerRegex, '').trim();
+    
+    // Remove surrounding quotes if the model quoted the rewrite
+    if (assistantText.startsWith('"') && assistantText.endsWith('"') && assistantText.length > 1) {
+      assistantText = assistantText.slice(1, -1).trim();
+    }
+    
+    return res.json({ 
+      improved_content: assistantText,
+      is_selection: !!selectedText 
+    });
+  } catch (error) {
     return handleRouteError(res, error, 'Error improving content');
   }
 });
@@ -592,7 +687,6 @@ function maskApiKey(apiKey) {
 
 // Health check endpoint for debugging deployment issues
 app.get('/api/health', (req, res) => {
-  const isProd = process.env.NODE_ENV === 'production';
   res.status(200).json({
     status: 'ok',
     time: new Date().toISOString(),
@@ -600,7 +694,6 @@ app.get('/api/health', (req, res) => {
     version: '1.0.0',
     python: PYTHON_BIN,
     apiKeyConfigured: Boolean(process.env.OPENROUTER_API_KEY),
-    allowUiApiKeySave: !isProd || process.env.ALLOW_UI_API_KEY === 'true',
   });
 });
 

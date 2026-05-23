@@ -96,7 +96,7 @@ export function normalizeError(error) {
     });
   }
 
-  if (error.code && ERROR_CODES[error.code]) {
+  if (error.code && Object.prototype.hasOwnProperty.call(ERROR_CODES, error.code)) {
     return error;
   }
 
@@ -108,7 +108,7 @@ export function normalizeError(error) {
     error.message ||
     'Request failed';
   const details = typeof data?.details === 'string' ? data.details : error.details;
-  const code = data?.code && ERROR_CODES[data.code] ? data.code : inferCode(raw, status);
+  const code = data?.code && Object.prototype.hasOwnProperty.call(ERROR_CODES, data.code) ? data.code : inferCode(raw, status);
 
   if (!error.response && !error.status) {
     return createAppError({

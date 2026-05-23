@@ -19,7 +19,7 @@ const TASK_LABELS = {
 };
 
 export function getTaskLabel(task) {
-  return TASK_LABELS[task] || 'Writing';
+  return Object.prototype.hasOwnProperty.call(TASK_LABELS, task) ? TASK_LABELS[task] : 'Writing';
 }
 
 export function getModelDisplayName(modelId, modelOptions) {

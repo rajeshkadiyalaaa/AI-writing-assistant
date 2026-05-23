@@ -23,7 +23,6 @@ export default function ApiKeyModal({
   onTest,
   onSave,
   isProd = false,
-  canSaveApiKeyViaUi = true,
 }) {
   if (!open) return null;
 
@@ -95,11 +94,9 @@ export default function ApiKeyModal({
           <div className="flex gap-2">
             <Info size={16} className="mt-0.5 shrink-0" />
             <p>
-              {isProd && !canSaveApiKeyViaUi
-                ? 'In production, set OPENROUTER_API_KEY in the server .env (Render/host dashboard). The UI cannot save keys on this deployment.'
-                : isProd
-                  ? 'Keys are stored on the server process only (set OPENROUTER_API_KEY in .env for persistence across restarts).'
-                  : 'For local dev, the key is sent to your backend. Optional browser storage is for convenience only.'}
+              {isProd
+                ? 'Keys are stored on the server process only (set OPENROUTER_API_KEY in .env for persistence across restarts).'
+                : 'For local dev, the key is sent to your backend. Optional browser storage is for convenience only.'}
             </p>
           </div>
         </div>
@@ -131,12 +128,7 @@ export default function ApiKeyModal({
           <button
             type="button"
             onClick={onSave}
-            disabled={
-              isUpdatingApiKey
-              || !canSaveApiKeyViaUi
-              || !apiKeyInput.trim()
-              || !apiKeyInput.startsWith('sk-or-')
-            }
+            disabled={isUpdatingApiKey || !apiKeyInput.trim() || !apiKeyInput.startsWith('sk-or-')}
             className="btn-primary"
           >
             {isUpdatingApiKey ? <><Loader size={16} className="animate-spin" /> Saving…</> : 'Save API key'}

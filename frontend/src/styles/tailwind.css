@@ -10,28 +10,26 @@
   }
 
   body {
-    @apply font-sans bg-surface-50 text-zinc-900
+    @apply font-sans bg-surface-50 text-zinc-900;
   }
 
   * {
-    @apply border-zinc-200/80
+    @apply border-zinc-200/80;
   }
 }
 
 @layer components {
   .studio-shell {
-    @apply flex h-[100dvh] flex-col overflow-hidden bg-surface-50
+    @apply flex h-[100dvh] flex-col overflow-hidden bg-surface-50;
   }
 
   .studio-panel {
-    @apply rounded-2xl border border-zinc-200/80 bg-white/90 shadow-soft backdrop-blur-md
-
+    @apply rounded-2xl border border-zinc-200/80 bg-white/90 shadow-soft backdrop-blur-md;
   }
 
   .studio-input {
     @apply w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900
-      shadow-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20
-
+      shadow-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20;
   }
 
   .studio-select {
@@ -41,8 +39,7 @@
 
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium
-      transition focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50
-
+      transition focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50;
   }
 
   .btn-primary {
@@ -50,26 +47,25 @@
   }
 
   .btn-secondary {
-    @apply btn border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50
-
+    @apply btn border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50;
   }
 
   .btn-ghost {
-    @apply btn text-zinc-600 hover:bg-zinc-100
+    @apply btn text-zinc-600 hover:bg-zinc-100;
   }
 
   .btn-icon {
     @apply inline-flex h-9 w-9 items-center justify-center rounded-xl text-zinc-500 transition
-      hover:bg-zinc-100 hover:text-zinc-800
+      hover:bg-zinc-100 hover:text-zinc-800;
   }
 
   .nav-tab {
     @apply relative flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-zinc-500
-      transition hover:text-zinc-800
+      transition hover:text-zinc-800;
   }
 
   .nav-tab-active {
-    @apply bg-white text-accent shadow-sm
+    @apply bg-white text-accent shadow-sm;
   }
 
   .chip {
@@ -78,17 +74,16 @@
 
   .mobile-nav-item {
     @apply flex flex-1 flex-col items-center gap-1 py-2 text-[11px] font-medium text-zinc-500
-      transition
+      transition;
   }
 
   .mobile-nav-item-active {
-    @apply text-accent
+    @apply text-accent;
   }
 
   .editor-area {
     @apply min-h-0 flex-1 resize-none border-0 bg-transparent p-0 text-[15px] leading-relaxed
-      text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-0
-
+      text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-0;
   }
 
   .chat-bubble-user {
@@ -97,12 +92,12 @@
 
   .chat-bubble-assistant {
     @apply max-w-[85%] rounded-2xl rounded-bl-md border border-zinc-200/80 bg-white px-4 py-3 text-sm
-      text-zinc-800 shadow-sm
+      text-zinc-800 shadow-sm;
   }
 
   .suggestion-card {
     @apply rounded-xl border border-zinc-200/80 bg-white p-4 shadow-sm transition
-      hover:border-accent/30
+      hover:border-accent/30;
   }
 
   .overlay-backdrop {
@@ -111,7 +106,7 @@
 
   .drawer-panel {
     @apply fixed inset-y-0 z-50 flex w-[min(100vw-3rem,320px)] flex-col border-r border-zinc-200/80
-      bg-white shadow-panel
+      bg-white shadow-panel;
   }
 
   .no-select {
