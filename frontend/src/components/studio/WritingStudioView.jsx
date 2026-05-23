@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   PenTool, Save, Download, Settings, FileText,
-  AlertTriangle, Key, MessageCircle, Sparkles, SlidersHorizontal, Check, AlertCircle, Info,
+  AlertTriangle, Key, MessageCircle, Sparkles, SlidersHorizontal, Check, AlertCircle, Info, Loader,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import SettingsSidebar from './SettingsSidebar';
