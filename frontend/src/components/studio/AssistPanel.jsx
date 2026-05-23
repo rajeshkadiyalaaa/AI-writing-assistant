@@ -81,8 +81,12 @@ export default function AssistPanel({
           </div>
         ) : (
           <ul className="space-y-3">
-            {suggestions.map((s) => (
-              <li key={s.id} className="suggestion-card">
+            {suggestions.map((s, index) => (
+              <li
+                key={s.id}
+                className="suggestion-card animate-waterfall"
+                style={{ animationDelay: `${index * 80}ms` }}
+              >
                 <div className="mb-2 flex items-start justify-between gap-2">
                   <span className={cn('chip', getTypeStyle(s.type))}>
                     {s.type}

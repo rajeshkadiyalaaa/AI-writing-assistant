@@ -260,7 +260,8 @@ export default function EditorPanel({
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
+                  // Only auto-submit on Enter for desktop screens
+                  if (e.key === 'Enter' && !e.shiftKey && window.innerWidth >= 1024) {
                     e.preventDefault();
                     if (!chatIsGenerating && messageInput.trim()) {
                       generateAIResponse();

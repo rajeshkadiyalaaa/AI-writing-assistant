@@ -57,6 +57,7 @@ const api = {
   improve: (data, config) => axiosInstance.post('/api/improve', data, config),
   models: (config) => axiosInstance.get('/api/models', config),
   refreshModels: (data, config) => axiosInstance.post('/api/models/refresh', data, config),
+  getAuthKeyInfo: (config) => axiosInstance.get('/api/auth/key', config),
 };
 
 export default api;

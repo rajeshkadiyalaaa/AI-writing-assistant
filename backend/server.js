@@ -619,6 +619,33 @@ app.post('/api/verify-model', async (req, res) => {
   }
 });
 
+// Fetch OpenRouter API Key usage and limits
+app.get('/api/auth/key', async (req, res) => {
+  const userKey = req.headers['x-user-api-key'];
+  const keyToUse = (userKey && String(userKey).trim()) ? String(userKey).trim() : process.env.OPENROUTER_API_KEY;
+
+  if (!keyToUse) {
+    return res.status(401).json({ error: 'No API key available' });
+  }
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/auth/key', {
+      headers: getOpenRouterHeaders(keyToUse)
+    });
+
+    if (!response.ok) {
+      const message = await parseOpenRouterError(response);
+      return res.status(response.status).json({ error: message || 'Failed to fetch key info' });
+    }
+
+    const data = await response.json();
+    return res.json(data);
+  } catch (error) {
+    console.error('Error fetching OpenRouter auth key:', error);
+    return res.status(500).json({ error: 'Server error while fetching key data' });
+  }
+});
+
 // Health check endpoint for debugging deployment issues
 app.get('/api/health', (req, res) => {
   res.status(200).json({

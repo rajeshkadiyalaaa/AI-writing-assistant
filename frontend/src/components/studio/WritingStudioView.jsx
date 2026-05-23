@@ -13,6 +13,7 @@ import DraftRestoreBanner from './DraftRestoreBanner';
 import ComparePreviewModal from './ComparePreviewModal';
 import SuggestionPreviewModal from './SuggestionPreviewModal';
 import RequestStatusBar from './RequestStatusBar';
+import api from '../../api';
 import { headerLogoClassName } from '../../constants/branding';
 
 export default function WritingStudioView({ p }) {
@@ -151,6 +152,23 @@ export default function WritingStudioView({ p }) {
 
   const docMeta = documentTypes.find((t) => t.id === documentType);
 
+  const [authKeyInfo, setAuthKeyInfo] = React.useState(null);
+  const [isFetchingKeyInfo, setIsFetchingKeyInfo] = React.useState(false);
+
+  React.useEffect(() => {
+    if (showUsageStats) {
+      setIsFetchingKeyInfo(true);
+      api.getAuthKeyInfo()
+        .then((res) => {
+          if (res.data && res.data.data) {
+            setAuthKeyInfo(res.data.data);
+          }
+        })
+        .catch(err => console.error("Failed to fetch key info", err))
+        .finally(() => setIsFetchingKeyInfo(false));
+    }
+  }, [showUsageStats, tokenUsage.total.total]);
+
   return (
     <div
       className={cn(
@@ -253,9 +271,24 @@ export default function WritingStudioView({ p }) {
                   </button>
                   {showUsageStats && (
                     <div className="mt-2 rounded-lg bg-zinc-50 p-2 text-xs">
-                      <div className="flex justify-between"><span>Total</span><span>{tokenUsage.total.total.toLocaleString()}</span></div>
-                      <div className="flex justify-between"><span>Last</span><span>{tokenUsage.last.total.toLocaleString()}</span></div>
-                      <div className="flex justify-between"><span>Est. cost</span><span>${estimateCost(tokenUsage.total.total, model).toFixed(4)}</span></div>
+                      {isFetchingKeyInfo && !authKeyInfo ? (
+                        <div className="flex items-center justify-center py-2 text-zinc-500">
+                          <Loader size={12} className="mr-2 animate-spin" /> Loading stats...
+                        </div>
+                      ) : authKeyInfo ? (
+                        <>
+                          <div className="flex justify-between"><span>Used from OpenRouter</span><span className="font-medium">${authKeyInfo.usage?.toFixed(4) || '0.0000'}</span></div>
+                          <div className="mt-1 flex justify-between"><span>Account Limit</span><span>{authKeyInfo.limit ? `$${authKeyInfo.limit.toFixed(2)}` : 'Unlimited'}</span></div>
+                          {authKeyInfo.is_free_tier && (
+                            <div className="mt-2 flex items-start text-[10px] text-amber-600">
+                              <AlertTriangle size={12} className="mr-1 mt-[1px] shrink-0" />
+                              Free tier rate limits apply.
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="flex justify-between text-zinc-500"><span>Est. local cost</span><span>${estimateCost(tokenUsage.total.total, model).toFixed(4)}</span></div>
+                      )}
                     </div>
                   )}
                 </div>
