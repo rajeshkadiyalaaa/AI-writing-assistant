@@ -276,11 +276,11 @@ export default function WritingStudioView({ p }) {
 
           <button
             type="button"
-            className="btn-icon xl:hidden"
-            onClick={() => setMobilePanel(mobilePanel === 'assist' ? null : 'assist')}
-            aria-label="AI Assist"
+            className="btn-primary ml-1.5 shrink-0 px-3 py-1.5 text-[11px]"
+            onClick={improveWriting}
+            disabled={isImproving || !content.trim()}
           >
-            <Sparkles size={18} />
+            {isImproving ? <Loader size={14} className="animate-spin" /> : 'Review'}
           </button>
         </div>
       </header>
@@ -447,23 +447,21 @@ export default function WritingStudioView({ p }) {
         {mobilePanel === 'assist' && activeTab === 'editor' && (
           <>
             <button type="button" className="overlay-backdrop" onClick={() => setMobilePanel(null)} aria-label="Close" />
-            <div className="fixed inset-y-0 right-0 z-50 w-[min(100vw-2rem,360px)]">
-              <AssistPanel
-                isMobile
-                onClose={() => setMobilePanel(null)}
-                suggestions={suggestions}
-                isGenerating={isImproving}
-                content={content}
-                apiKeySet={apiKeySet}
-                renderApiKeyPrompt={renderApiKeyPrompt}
-                generateSuggestions={generateSuggestions}
-                improveWriting={improveWriting}
-                improveSelection={improveSelection}
-                hasSelection={hasSelection}
-                applySuggestion={applySuggestion}
-                setSuggestions={setSuggestions}
-              />
-            </div>
+            <AssistPanel
+              isMobile
+              onClose={() => setMobilePanel(null)}
+              suggestions={suggestions}
+              isGenerating={isImproving}
+              content={content}
+              apiKeySet={apiKeySet}
+              renderApiKeyPrompt={renderApiKeyPrompt}
+              generateSuggestions={generateSuggestions}
+              improveWriting={improveWriting}
+              improveSelection={improveSelection}
+              hasSelection={hasSelection}
+              applySuggestion={applySuggestion}
+              setSuggestions={setSuggestions}
+            />
           </>
         )}
       </div>
@@ -485,16 +483,7 @@ export default function WritingStudioView({ p }) {
           <MessageCircle size={20} />
           Chat
         </button>
-        {activeTab === 'editor' && (
-          <button
-            type="button"
-            onClick={() => setMobilePanel(mobilePanel === 'assist' ? null : 'assist')}
-            className={cn('mobile-nav-item', mobilePanel === 'assist' && 'mobile-nav-item-active')}
-          >
-            <Sparkles size={20} />
-            Assist
-          </button>
-        )}
+
         <button
           type="button"
           onClick={() => setMobilePanel(mobilePanel === 'settings' ? null : 'settings')}
@@ -504,6 +493,18 @@ export default function WritingStudioView({ p }) {
           Style
         </button>
       </nav>
+
+      {/* Floating Action Button (FAB) for AI Assist */}
+      {activeTab === 'editor' && !mobilePanel && (
+        <button
+          type="button"
+          onClick={() => setMobilePanel('assist')}
+          className="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-xl transition-transform hover:scale-105 active:scale-95 lg:hidden"
+          aria-label="Open AI Assist"
+        >
+          <Sparkles size={24} />
+        </button>
+      )}
 
       <ApiKeyModal
         open={showApiKeyModal}

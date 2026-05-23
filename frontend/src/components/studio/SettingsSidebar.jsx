@@ -50,7 +50,7 @@ export default function SettingsSidebar({
   ];
 
   return (
-    <aside className={cn('flex h-full flex-col', isMobile && 'drawer-panel left-0')}>
+    <aside className={cn('flex h-full flex-col bg-white', isMobile && 'bottom-sheet')}>
       {isMobile && (
         <div className="flex items-center justify-between border-b border-zinc-200/80 px-4 py-3">
           <h2 className="font-display text-lg font-semibold">Settings</h2>
@@ -276,7 +276,17 @@ export default function SettingsSidebar({
               </button>
             </div>
 
-            <button type="button" onClick={() => setShowCustomModelForm(true)} className="btn-secondary w-full">
+            <button 
+              type="button" 
+              onClick={() => {
+                if (!apiKeySet) {
+                  onOpenApiKeyModal();
+                } else {
+                  setShowCustomModelForm(true);
+                }
+              }} 
+              className="btn-secondary w-full"
+            >
               <Plus size={16} /> Add custom model
             </button>
           </div>

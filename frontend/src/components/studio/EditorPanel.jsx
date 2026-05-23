@@ -163,8 +163,8 @@ export default function EditorPanel({
 
               {chatMessages.length === 0 && (
                 <div className="py-8 text-center animate-fade-in">
-                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/10 text-accent">
-                    <Bot size={28} />
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/10">
+                    <img src={`${process.env.PUBLIC_URL}/favicon.svg`} alt="Scribe" className="h-7 w-7" />
                   </div>
                   <h3 className="font-display text-xl font-semibold text-zinc-900">Chat with Scribe</h3>
                   <p className="mx-auto mt-2 max-w-md text-sm text-zinc-500">
@@ -197,7 +197,7 @@ export default function EditorPanel({
                         className={cn(
                           msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-assistant',
                           msg.isError &&
-                            'border border-red-200/80 bg-red-50 text-red-900'
+                          'border border-red-200/80 bg-red-50 text-red-900'
                         )}
                       >
                         <div className="whitespace-pre-wrap">

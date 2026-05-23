@@ -32,8 +32,8 @@ export default function AssistPanel({
   return (
     <aside
       className={cn(
-        'flex h-full flex-col border-zinc-200/80 bg-white/50',
-        isMobile ? 'drawer-panel right-0 border-l' : 'border-l'
+        'flex h-full flex-col border-zinc-200/80',
+        isMobile ? 'bottom-sheet' : 'border-l bg-white/50'
       )}
     >
       <div className="flex items-center justify-between border-b border-zinc-200/80 px-4 py-3">
