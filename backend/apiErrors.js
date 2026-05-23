@@ -59,9 +59,30 @@ function handleRouteError(res, error, fallbackMessage = 'Request failed') {
   return sendError(res, status, message, details ? { details } : {});
 }
 
-function requireServerApiKey(res) {
+function requireServerApiKey(req, res) {
+  // 1. Prefer the user's personal API key passed from localStorage
+  const userKey = req.headers['x-user-api-key'];
+  if (userKey && String(userKey).trim()) {
+    return String(userKey).trim();
+  }
+
+  // 2. Protect server billing: Only allow free models on the server's master API key
+  const requestedModel = req.body?.model;
+  const isFreeModel = !requestedModel || 
+                      requestedModel === 'openrouter/free' || 
+                      String(requestedModel).endsWith(':free');
+
+  if (!isFreeModel) {
+    sendError(res, 403, 'You must provide your own API key in Settings to use premium custom models.', {
+      code: 'API_KEY_REQUIRED',
+    });
+    return null;
+  }
+
+  // 3. Fallback to server's master key for free tier usage
   const key = process.env.OPENROUTER_API_KEY;
   if (key && String(key).trim()) return key;
+
   sendError(res, 503, 'OPENROUTER_API_KEY not configured on the server.', {
     code: 'API_KEY_MISSING',
   });

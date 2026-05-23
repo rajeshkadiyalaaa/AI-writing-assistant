@@ -26,6 +26,17 @@ const axiosInstance = axios.create({
   timeout: 120000,
 });
 
+axiosInstance.interceptors.request.use(
+  (config) => {
+    const key = localStorage.getItem('openrouter_api_key') || sessionStorage.getItem('openrouter_api_key');
+    if (key) {
+      config.headers['X-User-API-Key'] = key;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => Promise.reject(normalizeError(error))

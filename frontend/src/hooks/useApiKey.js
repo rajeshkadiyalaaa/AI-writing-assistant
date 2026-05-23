@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../api';
-import { formatApiError, assertApiSuccess } from '../lib/errors';
-
-const IS_PROD = process.env.NODE_ENV === 'production';
+import { formatApiError } from '../lib/errors';
 
 export default function useApiKey(showNotification) {
   const [apiKeyInput, setApiKeyInput] = useState('');
@@ -14,24 +12,28 @@ export default function useApiKey(showNotification) {
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [isTestingApiKey, setIsTestingApiKey] = useState(false);
   const [apiKeyTestSuccess, setApiKeyTestSuccess] = useState(false);
-  const [rememberKey, setRememberKey] = useState(!IS_PROD);
+  const [rememberKey, setRememberKey] = useState(true);
   const [showSecurityInfo, setShowSecurityInfo] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const fetchApiKeyInfo = useCallback(async () => {
-    try {
-      const response = await api.settingsApikey();
-      setMaskedApiKey(response.data.maskedKey);
-      setApiKeySet(response.data.isSet);
-    } catch {
-      setApiKeyError('Failed to load API key information');
+  const generateMaskedKey = (key) => {
+    if (!key || key.length < 8) return '';
+    return `${key.substring(0, 3)}...${key.substring(key.length - 5)}`;
+  };
+
+  const fetchApiKeyInfo = useCallback(() => {
+    const stored = localStorage.getItem('openrouter_api_key');
+    if (stored) {
+      setMaskedApiKey(generateMaskedKey(stored));
+      setApiKeySet(true);
+      if (!apiKeyInput) setApiKeyInput(stored);
+    } else {
+      setMaskedApiKey('');
+      setApiKeySet(false);
     }
-  }, []);
+  }, [apiKeyInput]);
 
   useEffect(() => {
-    if (IS_PROD) {
-      localStorage.removeItem('openrouter_api_key');
-    }
     fetchApiKeyInfo();
     api.health().catch(() => {
       console.warn('Backend not reachable. From project root run: npm start');
@@ -39,7 +41,7 @@ export default function useApiKey(showNotification) {
   }, [fetchApiKeyInfo]);
 
   useEffect(() => {
-    if (IS_PROD || !rememberKey) return;
+    if (!rememberKey) return;
     const stored = localStorage.getItem('openrouter_api_key');
     if (stored && !apiKeyInput) {
       setApiKeyInput(stored);
@@ -55,26 +57,27 @@ export default function useApiKey(showNotification) {
     setApiKeyError('');
     try {
       const cleaned = apiKeyInput.replace(/[\u0000-\u001F\u007F-\u009F\u00A0\u1680\u2000-\u200F\u2028\u2029\u202A-\u202E\u2060-\u206F\uFEFF]/g, '').trim();
-      const response = await api.settingsApikey({ apiKey: cleaned });
-      assertApiSuccess(response);
-      setMaskedApiKey(response.data.maskedKey);
-      setApiKeySet(true);
-      if (rememberKey && !IS_PROD) {
+      
+      // Save locally instead of hitting the server
+      if (rememberKey) {
         localStorage.setItem('openrouter_api_key', cleaned);
       } else {
         localStorage.removeItem('openrouter_api_key');
+        // Still temporarily hold it in sessionStorage or state if needed, but for simplicity we rely on local storage or just state.
+        // Actually, if rememberKey is false, we should at least store it in sessionStorage so it survives reloads.
+        sessionStorage.setItem('openrouter_api_key', cleaned);
       }
+      
+      setMaskedApiKey(generateMaskedKey(cleaned));
+      setApiKeySet(true);
       setApiKeyInput('');
       setShowApiKey(false);
       setShowApiKeyModal(false);
-      showNotification('API key saved on server for this session', 'success');
+      showNotification('API key saved securely in your browser', 'success');
     } catch (error) {
-      const msg =
-        (error.status === 403 || error.response?.status === 403) && IS_PROD
-          ? 'In production, set OPENROUTER_API_KEY in the server .env file instead of saving here.'
-          : formatApiError(error);
+      const msg = formatApiError(error);
       setApiKeyError(msg);
-      showNotification(`Failed to update API key: ${msg}`, 'error');
+      showNotification(`Failed to save API key: ${msg}`, 'error');
     } finally {
       setIsUpdatingApiKey(false);
     }
@@ -154,6 +157,6 @@ export default function useApiKey(showNotification) {
     updateApiKey,
     copyToClipboard,
     closeApiKeyModal,
-    isProd: IS_PROD,
+    isProd: true, // We always treat it safely now
   };
 }

@@ -228,7 +228,7 @@ async function prepareChatMessages(body) {
 
 // API endpoint to generate AI responses (non-streaming)
 app.post('/api/generate', async (req, res) => {
-  const apiKey = requireServerApiKey(res);
+  const apiKey = requireServerApiKey(req, res);
   if (!apiKey) return;
 
   try {
@@ -264,7 +264,7 @@ app.post('/api/generate', async (req, res) => {
 
 // Stream chat completions from OpenRouter (SSE proxy)
 app.post('/api/generate/stream', async (req, res) => {
-  const apiKey = requireServerApiKey(res);
+  const apiKey = requireServerApiKey(req, res);
   if (!apiKey) return;
 
   try {
@@ -343,7 +343,7 @@ app.post('/api/suggestions', async (req, res) => {
       return handleRouteError(res, e, 'Invalid request');
     }
     
-    const apiKey = requireServerApiKey(res);
+    const apiKey = requireServerApiKey(req, res);
     if (!apiKey) return;
 
     const { systemMessage, userMessage } = buildSuggestionsPrompt({ content, documentType, tone });
@@ -428,7 +428,7 @@ app.post('/api/improve', async (req, res) => {
       return handleRouteError(res, e, 'Invalid request');
     }
 
-    const apiKey = requireServerApiKey(res);
+    const apiKey = requireServerApiKey(req, res);
     if (!apiKey) return;
 
     const { systemMessage, userMessage } = buildImprovePrompt({
@@ -618,72 +618,6 @@ app.post('/api/verify-model', async (req, res) => {
     });
   }
 });
-
-// API endpoint to update API key
-app.post('/api/settings/apikey', async (req, res) => {
-  try {
-    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_UI_API_KEY !== 'true') {
-      return res.status(403).json({
-        error:
-          'API keys cannot be set via the UI in production. Set OPENROUTER_API_KEY in your server .env file.',
-      });
-    }
-
-    const raw = req.body.apiKey;
-    if (!raw || String(raw).trim() === '') {
-      return res.status(400).json({ error: 'API key cannot be empty' });
-    }
-
-    const cleaned = sanitizeApiKey(raw);
-    if (raw !== cleaned && cleaned.length > 0) {
-      console.warn('API key from UI contained invisible characters — removed before save.');
-    }
-
-    if (!isValidOpenRouterKey(cleaned)) {
-      return res.status(400).json({
-        error: 'Invalid API key. Copy a fresh key from openrouter.ai/keys with no extra spaces or line breaks.',
-      });
-    }
-
-    process.env.OPENROUTER_API_KEY = cleaned;
-    const maskedKey = maskApiKey(cleaned);
-    
-    console.log('API key updated successfully');
-    res.json({ 
-      success: true, 
-      message: 'API key updated successfully',
-      maskedKey
-    });
-  } catch (error) {
-    return handleRouteError(res, error, 'Could not update API key');
-  }
-});
-
-// API endpoint to get the masked API key
-app.get('/api/settings/apikey', (req, res) => {
-  try {
-    const apiKey = process.env.OPENROUTER_API_KEY || '';
-    const maskedKey = maskApiKey(apiKey);
-    
-    res.json({ 
-      maskedKey,
-      isSet: apiKey !== ''
-    });
-  } catch (error) {
-    return handleRouteError(res, error, 'Could not read API key status');
-  }
-});
-
-// Helper function to mask the API key
-function maskApiKey(apiKey) {
-  if (!apiKey || apiKey.length < 8) return '';
-  
-  const firstThree = apiKey.substring(0, 3);
-  const lastFive = apiKey.substring(apiKey.length - 5);
-  const masked = `${firstThree}...${lastFive}`;
-  
-  return masked;
-}
 
 // Health check endpoint for debugging deployment issues
 app.get('/api/health', (req, res) => {

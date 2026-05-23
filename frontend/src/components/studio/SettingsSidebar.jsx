@@ -111,7 +111,15 @@ export default function SettingsSidebar({
               <select
                 value={model}
                 onChange={(e) => {
-                  setModel(e.target.value);
+                  const newModelId = e.target.value;
+                  const isFree = newModelId === 'openrouter/free' || newModelId.endsWith(':free');
+                  
+                  if (!isFree && !apiKeySet) {
+                    onOpenApiKeyModal();
+                    return;
+                  }
+                  
+                  setModel(newModelId);
                   setChatMessages([]);
                 }}
                 className="studio-select"
