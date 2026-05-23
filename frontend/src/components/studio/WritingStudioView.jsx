@@ -173,7 +173,7 @@ export default function WritingStudioView({ p }) {
       {!apiKeySet && (
         <div className="flex shrink-0 items-center justify-center gap-2 bg-amber-50 px-4 py-2 text-sm text-amber-900">
           <AlertTriangle size={16} />
-          <span>No API key configured.</span>
+          <span>For Custom models</span>
           <button type="button" onClick={() => setShowApiKeyModal(true)} className="font-semibold underline">
             Connect now
           </button>

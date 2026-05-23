@@ -9,7 +9,7 @@ export default function ApiKeyPrompt({ onOpenModal }) {
       'p',
       { className: 'flex items-start gap-2 text-sm' },
       React.createElement(AlertTriangle, { size: 18, className: 'shrink-0' }),
-      'Connect your OpenRouter API key to use AI suggestions and improvements.'
+      'Connect your OpenRouter API key to use Custom models'
     ),
     React.createElement(
       'button',

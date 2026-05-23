@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   Edit3, MessageCircle, Send, Loader, Bot, Trash2, Save, Undo2, Redo2, Sparkles,
   FilePlus, Copy,
@@ -39,6 +39,14 @@ export default function EditorPanel({
   onInsertChatMessage,
 }) {
   const stats = useMemo(() => computeEditorStats(content), [content]);
+  const chatInputRef = useRef(null);
+
+  useEffect(() => {
+    if (chatInputRef.current) {
+      chatInputRef.current.style.height = 'auto';
+      chatInputRef.current.style.height = Math.min(chatInputRef.current.scrollHeight, 200) + 'px';
+    }
+  }, [messageInput]);
 
   useEffect(() => {
     const onKeyDown = (e) => {
@@ -247,13 +255,22 @@ export default function EditorPanel({
 
           <div className="shrink-0 border-t border-zinc-200/80 p-3 sm:p-4">
             <div className="mx-auto flex max-w-2xl gap-2">
-              <input
-                type="text"
+              <textarea
+                ref={chatInputRef}
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !chatIsGenerating && messageInput.trim() && generateAIResponse()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!chatIsGenerating && messageInput.trim()) {
+                      generateAIResponse();
+                    }
+                  }
+                }}
                 placeholder="Message Scribe…"
-                className="studio-input flex-1"
+                rows={1}
+                className="studio-input flex-1 resize-none overflow-y-auto"
+                style={{ minHeight: '44px', maxHeight: '200px' }}
               />
               {chatIsGenerating && onCancelChat && (
                 <button type="button" onClick={onCancelChat} className="btn-secondary shrink-0 px-3 text-xs">
