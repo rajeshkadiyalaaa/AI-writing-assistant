@@ -1,4 +1,4 @@
-# Scribe — AI Writing Assistant
+# Scribe — Studio
 
 Scribe helps you write better, faster. Draft in a clean editor, ask the AI for ideas or rewrites, get suggestions to polish your text, and export when you’re done—all in one place. Add your [OpenRouter](https://openrouter.ai) API key to get started.
 
